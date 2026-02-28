@@ -69,6 +69,9 @@ jobs:
         sed -i 's/luci-app-statistics//g' feeds/luci/collections/luci/Makefile
         sed -i 's/ipv6helper//g' feeds/luci/collections/luci/Makefile
         
+        # 修复 iptables 编译报错：恢复基础的 IPv6 内核支持 (但不开启上层应用)
+        # 原因是 iptables 1.8.7 强依赖 ip6tables，完全剔除 IPv6 会导致编译中断
+        
         # 写入 WNDR3800 的配置
         cat >> .config <<EOF
         CONFIG_TARGET_ath79=y
@@ -104,7 +107,7 @@ jobs:
         make defconfig
         
         # 再次暴力清理 .config 中可能残留的顽固项
-        sed -i 's/CONFIG_IPV6=y/# CONFIG_IPV6 is not set/g' .config
+        # 注意：不再强制关闭 CONFIG_IPV6，以满足 iptables 的编译依赖
         sed -i 's/CONFIG_PACKAGE_ipv6helper=y/# CONFIG_PACKAGE_ipv6helper is not set/g' .config
         sed -i 's/CONFIG_PACKAGE_luci-app-statistics=y/# CONFIG_PACKAGE_luci-app-statistics is not set/g' .config
         sed -i 's/CONFIG_PACKAGE_collectd=y/# CONFIG_PACKAGE_collectd is not set/g' .config
