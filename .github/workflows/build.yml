@@ -78,9 +78,10 @@ jobs:
         # 科学上网 (SSR+)
         CONFIG_PACKAGE_luci-app-ssr-plus=y
         CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_ShadowsocksR_Libev_Client=y
-        # 开启 Xray 并强制使用 UPX 压缩，将其体积从 15MB 压缩到 4MB 左右以适配 16MB 闪存
-        CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Xray=y
-        CONFIG_XRAY_CORE_COMPRESS_UPX=y
+        # 16MB 闪存极限警告：即使开启 UPX 压缩，加入 Xray 和 USB 驱动后总大小仍达到 17.4MB，导致无法生成 sysupgrade 刷机包。
+        # 必须在基础固件中禁用 Xray。请在刷机并开启 U盘 Extroot 扩容后，再通过后台在线安装 Xray。
+        # CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Xray is not set
+        # CONFIG_XRAY_CORE_COMPRESS_UPX is not set
         CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Trojan=y
         
         # QoS 功能 (解决游戏跳Ping)
@@ -252,7 +253,7 @@ jobs:
         echo "release_tag=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_OUTPUT
         touch release.txt
         echo "WNDR3800 精简高性能固件" >> release.txt
-        echo "- 包含 SSR+ (科学上网，支持 SSR/Trojan/Xray，Xray已开启UPX极限压缩)" >> release.txt
+        echo "- 包含 SSR+ (科学上网，支持 SSR/Trojan。因 16MB 限制已移除 Xray，请扩容后在线安装)" >> release.txt
         echo "- 包含 SQM QoS / EQoS (解决游戏跳Ping)" >> release.txt
         echo "- 包含 Turbo ACC 网络加速 (仅开启 BBR，完美兼容 SQM)" >> release.txt
         echo "- 包含 UPnP" >> release.txt
