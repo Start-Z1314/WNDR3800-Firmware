@@ -240,7 +240,10 @@ jobs:
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true' && !cancelled()
       with:
         name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-        path: openwrt/bin/targets/*/*/*sysupgrade.bin
+        path: |
+          openwrt/bin/targets/*/*/*.bin
+          openwrt/bin/targets/*/*/*.img
+          openwrt/bin/targets/*/*/*.manifest
 
     - name: Generate release tag
       id: tag
@@ -264,4 +267,6 @@ jobs:
       with:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
-        files: openwrt/bin/targets/*/*/*sysupgrade.bin
+        files: |
+          openwrt/bin/targets/*/*/*.bin
+          openwrt/bin/targets/*/*/*.img
