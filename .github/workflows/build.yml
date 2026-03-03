@@ -1,0 +1,229 @@
+name: Build WNDR3800 Performance Firmware
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+    inputs:
+      ssh:
+        description: 'SSH connection to Actions'
+        required: false
+        default: 'false'
+
+env:
+  REPO_URL: https://github.com/coolsnowwolf/lede
+  REPO_BRANCH: master
+  FEEDS_CONF: feeds.conf.default
+  CONFIG_FILE: .config
+  # 脚本路径已调整为仓库根目录
+  DIY_P1_SH: diy-part1.sh
+  DIY_P2_SH: diy-part2.sh
+  UPLOAD_BIN_DIR: false
+  UPLOAD_FIRMWARE: true
+  UPLOAD_RELEASE: true
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@main
+
+    - name: Check Files
+      run: |
+        echo "Current directory: $PWD"
+        ls -R
+
+    - name: Initialization environment
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
+        sudo -E apt-get -qq update
+        sudo -E apt-get -qq install $(curl -fsSL https://is.gd/depends_ubuntu_2204)
+        sudo -E apt-get -qq autoremove --purge
+        sudo -E apt-get -qq clean
+        sudo timedatectl set-timezone "$TZ"
+        sudo mkdir -p /workdir
+        sudo chown $USER:$GROUPS /workdir
+        echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+        echo "DEVICE_NAME=WNDR3800" >> $GITHUB_ENV
+
+    - name: Clone source code
+      working-directory: /workdir
+      run: |
+        df -hT $PWD
+        git clone $REPO_URL -b $REPO_BRANCH lede
+        ln -sf /workdir/lede $GITHUB_WORKSPACE/lede
+
+    - name: Load custom feeds
+      run: |
+        [ -e "$FEEDS_CONF" ] && cp "$FEEDS_CONF" lede/feeds.conf.default
+        chmod +x "$DIY_P1_SH"
+        cd lede
+        $GITHUB_WORKSPACE/$DIY_P1_SH
+
+    - name: Update feeds
+      run: cd lede && ./scripts/feeds update -a
+
+    - name: Install feeds
+      run: cd lede && ./scripts/feeds install -a
+
+    - name: Load custom configuration
+      run: |
+        [ -e "$CONFIG_FILE" ] && cp "$CONFIG_FILE" lede/.config
+        chmod +x "$DIY_P2_SH"
+        cd lede
+        $GITHUB_WORKSPACE/$DIY_P2_SH
+
+    - name: Generate Configuration
+      run: |
+        cd lede
+        # 强制清理并锁定 WNDR3800 架构
+        echo "CONFIG_TARGET_ath79=y" > .config
+        echo "CONFIG_TARGET_ath79_generic=y" >> .config
+        echo "CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800=y" >> .config
+        
+        # 预运行一次 defconfig 锁定架构依赖
+        make defconfig
+        
+        # 性能压榨：全局优化设置
+        echo "CONFIG_STRIP_KERNEL_EXPORTS=y" >> .config
+        echo "CONFIG_USE_MKLIBS=y" >> .config
+        echo "CONFIG_COLLECT_KERNEL_DEBUG=n" >> .config
+        # 开启 UPX 压缩 (16MB Flash 机型必须，减小二进制文件体积)
+        echo "CONFIG_USE_UPX=y" >> .config
+        
+        # 内存救星：彻底禁用 IPv6
+        echo "# CONFIG_IPV6 is not set" >> .config
+        echo "CONFIG_PACKAGE_dnsmasq_full_dhcpv6=n" >> .config
+        echo "CONFIG_PACKAGE_ipv6helper=n" >> .config
+        
+        # 核心功能：Turbo ACC (SFE加速)
+        # WNDR3800 (ath79) 硬件不支持 Flow Offloading，必须强制使用 SFE 以避免冲突
+        echo "CONFIG_PACKAGE_luci-app-turbo-acc=y" >> .config
+        echo "CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_OFFLOADING=n" >> .config
+        echo "CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_SHORTCUT_FE=y" >> .config
+        echo "CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_BBR_CCA=n" >> .config
+        echo "CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_DNSCACHE=y" >> .config
+        
+        # 核心功能：SSR-Plus (针对 16MB Flash 优化平衡版)
+        # 方案：保留 SS/SSR/Trojan，舍弃体积巨大的 Xray 和 V2Ray-Plugin 以确保 16MB 容纳
+        echo "CONFIG_PACKAGE_luci-app-ssr-plus=y" >> .config
+        echo "CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Shadowsocks_Libev_Client=y" >> .config
+        echo "CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Shadowsocks_Libev_Server=n" >> .config
+        echo "CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_ShadowsocksR_Libev_Client=y" >> .config
+        echo "CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_ShadowsocksR_Libev_Server=n" >> .config
+        echo "CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Trojan=y" >> .config
+        echo "CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Xray=n" >> .config
+        echo "CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_V2ray_Plugin=n" >> .config
+        
+        # 核心功能：轻量 QoS (石像鬼核心)
+        echo "CONFIG_PACKAGE_luci-app-eqos=y" >> .config
+        
+        # 极致精简：剔除所有潜在 Bug 和冗余
+        # 移除 ppp-multilink 等老旧协议以节省内核内存
+        echo "CONFIG_PPP_MULTILINK=n" >> .config
+        echo "# CONFIG_PACKAGE_luci-app-access-control is not set" >> .config
+        echo "# CONFIG_PACKAGE_luci-app-wol is not set" >> .config
+        echo "# CONFIG_PACKAGE_luci-app-nlbwmon is not set" >> .config
+        echo "# CONFIG_PACKAGE_luci-app-unblockmusic is not set" >> .config
+        echo "# CONFIG_PACKAGE_luci-app-arpbind is not set" >> .config
+        echo "# CONFIG_PACKAGE_luci-app-autoreboot is not set" >> .config
+        echo "# CONFIG_PACKAGE_luci-app-filetransfer is not set" >> .config
+        echo "# CONFIG_PACKAGE_luci-app-upnp is not set" >> .config
+        
+        # 界面：使用最现代、适配全终端的 Argon 主题
+        echo "CONFIG_PACKAGE_luci-theme-argon=y" >> .config
+        echo "CONFIG_PACKAGE_luci-app-argon-config=y" >> .config
+        echo "# CONFIG_PACKAGE_luci-theme-bootstrap is not set" >> .config
+        echo "# CONFIG_PACKAGE_luci-theme-edge is not set" >> .config
+
+        # 硬件驱动匹配：WNDR3800 专用无线驱动 (ath9k)
+        echo "CONFIG_PACKAGE_kmod-ath9k=y" >> .config
+        echo "CONFIG_ATH9K_SUPPORT_PCOEM=y" >> .config
+        echo "# CONFIG_PACKAGE_ath9k-htc-firmware is not set" >> .config
+
+        # 极致精简：移除不必要的内核调试和冗余驱动
+        echo "CONFIG_KERNEL_GZIP=y" >> .config
+        echo "CONFIG_KERNEL_KALLSYMS=n" >> .config
+        echo "CONFIG_KERNEL_DEBUG_KERNEL=n" >> .config
+
+        # 交换机芯片驱动：WNDR3800 硬件修正 (RTL8366SR)
+        echo "CONFIG_PACKAGE_kmod-swconfig=y" >> .config
+        echo "CONFIG_PACKAGE_kmod-switch-rtl8366sr=y" >> .config
+        echo "CONFIG_PACKAGE_kmod-switch-rtl8366_smi=y" >> .config
+
+        # 存储与 NAS 共享 (配合 Aria2 打造轻量下载机)
+        # 包含必要的 USB 2.0 驱动和文件系统支持
+        echo "CONFIG_PACKAGE_kmod-usb-ohci=y" >> .config
+        echo "CONFIG_PACKAGE_kmod-usb2=y" >> .config
+        echo "CONFIG_PACKAGE_kmod-usb-storage=y" >> .config
+        echo "CONFIG_PACKAGE_kmod-fs-ext4=y" >> .config
+        echo "CONFIG_PACKAGE_kmod-fs-vfat=y" >> .config
+        echo "CONFIG_PACKAGE_kmod-nls-utf8=y" >> .config
+        echo "CONFIG_PACKAGE_kmod-nls-cp437=y" >> .config
+        
+        # NAS 核心组件：Samba4 + FTP + 自动挂载
+        echo "CONFIG_PACKAGE_luci-app-aria2=y" >> .config
+        echo "CONFIG_PACKAGE_luci-app-samba4=y" >> .config
+        echo "CONFIG_PACKAGE_luci-app-vsftpd=y" >> .config
+        echo "CONFIG_PACKAGE_block-mount=y" >> .config
+        
+        # 极致性能优化：zRAM 虚拟内存 + CPU 频率调节
+        echo "CONFIG_PACKAGE_zram-swap=y" >> .config
+        echo "CONFIG_PACKAGE_luci-app-cpufreq=y" >> .config
+        
+        make defconfig
+
+    - name: Download package
+      id: package
+      run: |
+        cd lede
+        make download -j8
+        find dl -size -1024c -exec ls -l {} \;
+        find dl -size -1024c -exec rm -f {} \;
+
+    - name: Compile the firmware
+      id: compile
+      run: |
+        cd lede
+        echo -e "$(nproc) thread compile"
+        make -j$(nproc) || make -j1 || make -j1 V=s
+        echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: Check space usage
+      if: (!cancelled())
+      run: df -hT
+
+    - name: Upload bin directory
+      uses: actions/upload-artifact@main
+      if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
+      with:
+        name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        path: lede/bin
+
+    - name: Organize files
+      id: organize
+      if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
+      run: |
+        mkdir -p firmware
+        # 使用更稳健的查找方式，确保在编译失败时不会报错，并能正确处理软链接
+        if [ -d lede/bin/targets/ ]; then
+          find lede/bin/targets/ -type f \( -name "*.bin" -o -name "*.img" -o -name "*.tar.gz" \) -exec cp {} ./firmware/ \;
+        fi
+        if [ -d ./firmware ] && [ "$(ls -A ./firmware/)" ]; then
+          echo "FIRMWARE=$GITHUB_WORKSPACE/firmware" >> $GITHUB_ENV
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "No firmware found"
+          echo "status=fail" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Upload firmware directory
+      uses: actions/upload-artifact@main
+      if: steps.organize.outputs.status == 'success' && !cancelled()
+      with:
+        name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        path: ${{ env.FIRMWARE }}
