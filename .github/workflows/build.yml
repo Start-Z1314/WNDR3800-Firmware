@@ -59,10 +59,17 @@ jobs:
 
     - name: Load custom feeds
       run: |
+        echo "Current workspace: $GITHUB_WORKSPACE"
+        echo "DIY_P1_SH path: $GITHUB_WORKSPACE/$DIY_P1_SH"
+        ls -la "$GITHUB_WORKSPACE/WNDR3800_OpenWrt_Builder/" || echo "Directory not found"
         [ -e "$FEEDS_CONF" ] && cp "$FEEDS_CONF" lede/feeds.conf.default
-        chmod +x "$GITHUB_WORKSPACE/$DIY_P1_SH"
-        cd lede
-        "$GITHUB_WORKSPACE/$DIY_P1_SH"
+        if [ -f "$GITHUB_WORKSPACE/$DIY_P1_SH" ]; then
+          chmod +x "$GITHUB_WORKSPACE/$DIY_P1_SH"
+          cd lede
+          bash "$GITHUB_WORKSPACE/$DIY_P1_SH"
+        else
+          echo "Warning: $DIY_P1_SH not found, skipping"
+        fi
 
     - name: Update feeds
       run: cd lede && ./scripts/feeds update -a
@@ -73,9 +80,14 @@ jobs:
     - name: Load custom configuration
       run: |
         [ -e "$CONFIG_FILE" ] && cp "$CONFIG_FILE" lede/.config
-        chmod +x "$GITHUB_WORKSPACE/$DIY_P2_SH"
-        cd lede
-        "$GITHUB_WORKSPACE/$DIY_P2_SH"
+        if [ -f "$GITHUB_WORKSPACE/$DIY_P2_SH" ]; then
+          chmod +x "$GITHUB_WORKSPACE/$DIY_P2_SH"
+          cd lede
+          bash "$GITHUB_WORKSPACE/$DIY_P2_SH"
+        else
+          echo "Error: $DIY_P2_SH not found"
+          exit 1
+        fi
 
     - name: Generate Configuration
       run: |
