@@ -241,7 +241,7 @@ jobs:
       if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
       run: |
         mkdir -p firmware
-        # ä½¿ç”¨æ›´ç¨³å�¥çš„æŸ¥æ‰¾æ–¹å¼�ï¼Œç¡®ä¿�åœ¨ç¼–è¯‘å¤±è´¥æ—¶ä¸�ä¼šæŠ¥é”™ï¼Œå¹¶èƒ½æ­£ç¡®å¤„ç�†è½¯é“¾æŽ?        if [ -d lede/bin/targets/ ]; then
+        # ä½¿ç”¨æ›´ç¨³å ¥çš„æŸ¥æ‰¾æ–¹å¼ ï¼Œç¡®ä¿ åœ¨ç¼–è¯‘å¤±è´¥æ—¶ä¸ ä¼šæŠ¥é”™ï¼Œå¹¶èƒ½æ­£ç¡®å¤„ç †è½¯é“¾æŽ?        if [ -d lede/bin/targets/ ]; then
           find lede/bin/targets/ -type f \( -name "*.bin" -o -name "*.img" -o -name "*.tar.gz" \) -exec cp {} ./firmware/ \;
         fi
         if [ -d ./firmware ] && [ "$(ls -A ./firmware/)" ]; then
@@ -258,7 +258,7 @@ jobs:
       with:
         name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE }}
-# Modified at 2026-03-05 20:20:47
+
 </final_file_content>
 
 3. If the user's edits have addressed part of the task or changed the requirements, adjust your approach accordingly.
