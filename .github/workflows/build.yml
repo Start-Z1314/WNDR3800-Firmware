@@ -15,8 +15,8 @@ env:
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
   # 脚本路径已调整为仓库根目录
-  DIY_P1_SH: WNDR3800_OpenWrt_Builder/diy-part1.sh
-  DIY_P2_SH: WNDR3800_OpenWrt_Builder/diy-part2.sh
+  DIY_P1_SH: diy-part1.sh
+  DIY_P2_SH: diy-part2.sh
   UPLOAD_BIN_DIR: false
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
