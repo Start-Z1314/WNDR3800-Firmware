@@ -88,7 +88,7 @@ config cpufreq 'cpufreq'
 	option enabled '1'
 	option governor 'performance'
 	option min_freq '680000'
-	option max_freq '680000'
+	option max_freq '800000'
 EOF
 
 # ============================================================================
@@ -429,6 +429,6 @@ echo "✓ 编译架构: OpenWrt 22.03 + Kernel 4.14"
 echo "✓ 目标稳定性: 最大稳定性优先"
 echo "✓ 网络加速: SFE + DNS 缓存"
 echo "✓ WiFi 配置: 已预设最优参数"
-echo "✓ 默认密码: admin888 (root 用户)"
+echo "✓ 默认密码: 12315555 (root 用户)"
 echo "✓ 网络地址: 192.168.1.1"
 echo "==================================================================="
