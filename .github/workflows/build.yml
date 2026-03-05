@@ -14,8 +14,7 @@ env:
   REPO_BRANCH: openwrt-22.03
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
-  # 脚本路径已调整为仓库根目录
-  DIY_P1_SH: diy-part1.sh
+  # 鑴氭湰璺緞宸茶皟鏁翠负浠撳簱鏍圭洰褰?  DIY_P1_SH: diy-part1.sh
   DIY_P2_SH: diy-part2.sh
   UPLOAD_BIN_DIR: false
   UPLOAD_FIRMWARE: true
@@ -91,63 +90,61 @@ jobs:
     - name: Generate Configuration
       run: |
         cd lede
-        # 强制清理并锁定 WNDR3800 架构
+        # 寮哄埗娓呯悊骞堕攣瀹?WNDR3800 鏋舵瀯
         sed -i 's/CONFIG_TARGET_ath79=.*/CONFIG_TARGET_ath79=y/' .config
         sed -i 's/CONFIG_TARGET_ath79_generic=.*/CONFIG_TARGET_ath79_generic=y/' .config
         sed -i 's/CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800=.*/CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800=y/' .config
         
-        # 预运行一次 defconfig 锁定架构依赖
+        # 棰勮繍琛屼竴娆?defconfig 閿佸畾鏋舵瀯渚濊禆
         make defconfig
         
-        # 方案 A：最大稳定性 - 锁定内核 4.14
+        # 鏂规 A锛氭渶澶хǔ瀹氭€?- 閿佸畾鍐呮牳 4.14
         sed -i 's/CONFIG_LINUX_KERNEL_VERSION=.*/CONFIG_LINUX_KERNEL_VERSION="4.14"/' .config
         
-        # 性能压榨：全局优化设置
+        # 鎬ц兘鍘嬫Θ锛氬叏灞€浼樺寲璁剧疆
         sed -i 's/# CONFIG_STRIP_KERNEL_EXPORTS is not set/CONFIG_STRIP_KERNEL_EXPORTS=y/' .config
         sed -i 's/# CONFIG_USE_MKLIBS is not set/CONFIG_USE_MKLIBS=y/' .config
         sed -i 's/CONFIG_COLLECT_KERNEL_DEBUG=y/# CONFIG_COLLECT_KERNEL_DEBUG is not set/' .config
-        # 开启 UPX 压缩 (16MB Flash 机型必须，减小二进制文件体积)
+        # 寮€鍚?UPX 鍘嬬缉 (16MB Flash 鏈哄瀷蹇呴』锛屽噺灏忎簩杩涘埗鏂囦欢浣撶Н)
         sed -i 's/# CONFIG_USE_UPX is not set/CONFIG_USE_UPX=y/' .config
         
-        # 内存救星：彻底禁用 IPv6
+        # 鍐呭瓨鏁戞槦锛氬交搴曠鐢?IPv6
         sed -i 's/CONFIG_IPV6=y/# CONFIG_IPV6 is not set/' .config
         sed -i 's/CONFIG_PACKAGE_dnsmasq_full_dhcpv6=y/# CONFIG_PACKAGE_dnsmasq_full_dhcpv6 is not set/' .config
         sed -i 's/CONFIG_PACKAGE_ipv6helper=y/# CONFIG_PACKAGE_ipv6helper is not set/' .config
         
-        # 方案 A：最大稳定性 + SSR Plus 启用 (代理支持)
+        # 鏂规 A锛氭渶澶хǔ瀹氭€?+ SSR Plus 鍚敤 (浠ｇ悊鏀寔)
         sed -i 's/# CONFIG_PACKAGE_luci-app-ssr-plus is not set/CONFIG_PACKAGE_luci-app-ssr-plus=y/' .config
         sed -i 's/# CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Shadowsocks is not set/CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Shadowsocks=y/' .config
         sed -i 's/# CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_V2ray is not set/CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_V2ray=y/' .config
         sed -i 's/# CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Trojan is not set/CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Trojan=y/' .config
         sed -i 's/# CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Redsocks2 is not set/CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Redsocks2=y/' .config
         
-        # 核心功能：Turbo ACC (SFE加速) - 方案 A 保持启用但禁用 BBR
-        # WNDR3800 (ath79) 硬件不支持 Flow Offloading，必须强制使用 SFE 以避免冲突
-        sed -i 's/# CONFIG_PACKAGE_luci-app-turbo-acc is not set/CONFIG_PACKAGE_luci-app-turbo-acc=y/' .config
+        # 鏍稿績鍔熻兘锛歍urbo ACC (SFE鍔犻€? - 鏂规 A 淇濇寔鍚敤浣嗙鐢?BBR
+        # WNDR3800 (ath79) 纭欢涓嶆敮鎸?Flow Offloading锛屽繀椤诲己鍒朵娇鐢?SFE 浠ラ伩鍏嶅啿绐?        sed -i 's/# CONFIG_PACKAGE_luci-app-turbo-acc is not set/CONFIG_PACKAGE_luci-app-turbo-acc=y/' .config
         sed -i 's/CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_OFFLOADING=y/# CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_OFFLOADING is not set/' .config
         sed -i 's/# CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_SHORTCUT_FE is not set/CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_SHORTCUT_FE=y/' .config
         sed -i 's/CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_BBR_CCA=y/# CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_BBR_CCA is not set/' .config
         sed -i 's/# CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_DNSCACHE is not set/CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_DNSCACHE=y/' .config
         
-        # 核心功能：轻量 QoS (石像鬼核心)
+        # 鏍稿績鍔熻兘锛氳交閲?QoS (鐭冲儚楝兼牳蹇?
         sed -i 's/# CONFIG_PACKAGE_luci-app-eqos is not set/CONFIG_PACKAGE_luci-app-eqos=y/' .config
         
-        # 极致精简：解决软件包冲突 (CRITICAL FIX)
-        # 1. 解决 vsftpd 冲突：禁用 vsftpd-alt，使用标准 vsftpd
+        # 鏋佽嚧绮剧畝锛氳В鍐宠蒋浠跺寘鍐茬獊 (CRITICAL FIX)
+        # 1. 瑙ｅ喅 vsftpd 鍐茬獊锛氱鐢?vsftpd-alt锛屼娇鐢ㄦ爣鍑?vsftpd
         echo "CONFIG_PACKAGE_vsftpd-alt=n" >> .config
         echo "CONFIG_PACKAGE_luci-app-vsftpd=y" >> .config
         
-        # 2. 解决 Samba 冲突：禁用 autosamba，使用 luci-app-samba4
+        # 2. 瑙ｅ喅 Samba 鍐茬獊锛氱鐢?autosamba锛屼娇鐢?luci-app-samba4
         echo "CONFIG_PACKAGE_autosamba=n" >> .config
         echo "CONFIG_PACKAGE_luci-app-samba4=y" >> .config
         
-        # 3. 解决 TurboACC 冲突：禁用 luci-app-turboacc (无横杠版)，使用 luci-app-turbo-acc (有横杠版)
+        # 3. 瑙ｅ喅 TurboACC 鍐茬獊锛氱鐢?luci-app-turboacc (鏃犳í鏉犵増)锛屼娇鐢?luci-app-turbo-acc (鏈夋í鏉犵増)
         echo "CONFIG_PACKAGE_luci-app-turboacc=n" >> .config
         echo "CONFIG_PACKAGE_luci-app-turboacc_INCLUDE_OFFLOADING=n" >> .config
         echo "CONFIG_PACKAGE_luci-app-turbo-acc=y" >> .config
 
-        # 移除 ppp-multilink 等老旧协议以节省内核内存
-        sed -i 's/CONFIG_PPP_MULTILINK=y/# CONFIG_PPP_MULTILINK is not set/' .config
+        # 绉婚櫎 ppp-multilink 绛夎€佹棫鍗忚浠ヨ妭鐪佸唴鏍稿唴瀛?        sed -i 's/CONFIG_PPP_MULTILINK=y/# CONFIG_PPP_MULTILINK is not set/' .config
 
         # Enable desired packages using sed to ensure proper configuration
         sed -i 's/# CONFIG_PACKAGE_luci-app-access-control is not set/CONFIG_PACKAGE_luci-app-access-control=y/' .config
@@ -169,24 +166,23 @@ jobs:
         sed -i 's/CONFIG_PACKAGE_luci-theme-bootstrap=y/# CONFIG_PACKAGE_luci-theme-bootstrap is not set/' .config
         sed -i 's/CONFIG_PACKAGE_luci-theme-edge=y/# CONFIG_PACKAGE_luci-theme-edge is not set/' .config
 
-        # 硬件驱动匹配：WNDR3800 专用无线驱动 (ath9k)
+        # 纭欢椹卞姩鍖归厤锛歐NDR3800 涓撶敤鏃犵嚎椹卞姩 (ath9k)
         sed -i 's/# CONFIG_PACKAGE_kmod-ath9k is not set/CONFIG_PACKAGE_kmod-ath9k=y/' .config
         sed -i 's/# CONFIG_ATH9K_SUPPORT_PCOEM is not set/CONFIG_ATH9K_SUPPORT_PCOEM=y/' .config
         sed -i 's/CONFIG_PACKAGE_ath9k-htc-firmware=y/# CONFIG_PACKAGE_ath9k-htc-firmware is not set/' .config
 
-        # 极致精简：移除不必要的内核调试和冗余驱动
+        # 鏋佽嚧绮剧畝锛氱Щ闄や笉蹇呰鐨勫唴鏍歌皟璇曞拰鍐椾綑椹卞姩
         sed -i 's/# CONFIG_KERNEL_GZIP is not set/CONFIG_KERNEL_GZIP=y/' .config
         sed -i 's/CONFIG_KERNEL_KALLSYMS=y/# CONFIG_KERNEL_KALLSYMS is not set/' .config
         sed -i 's/CONFIG_KERNEL_DEBUG_KERNEL=y/# CONFIG_KERNEL_DEBUG_KERNEL is not set/' .config
 
-        # 交换机芯片驱动：WNDR3800 硬件修正 (RTL8366SR)
+        # 浜ゆ崲鏈鸿姱鐗囬┍鍔細WNDR3800 纭欢淇 (RTL8366SR)
         sed -i 's/# CONFIG_PACKAGE_kmod-swconfig is not set/CONFIG_PACKAGE_kmod-swconfig=y/' .config
         sed -i 's/# CONFIG_PACKAGE_kmod-switch-rtl8366sr is not set/CONFIG_PACKAGE_kmod-switch-rtl8366sr=y/' .config
         sed -i 's/# CONFIG_PACKAGE_kmod-switch-rtl8366_smi is not set/CONFIG_PACKAGE_kmod-switch-rtl8366_smi=y/' .config
 
-        # 存储与 NAS 共享 (配合 Aria2 打造轻量下载机)
-        # 包含必要的 USB 2.0 驱动和文件系统支持
-        sed -i 's/# CONFIG_PACKAGE_kmod-usb-ohci is not set/CONFIG_PACKAGE_kmod-usb-ohci=y/' .config
+        # 瀛樺偍涓?NAS 鍏变韩 (閰嶅悎 Aria2 鎵撻€犺交閲忎笅杞芥満)
+        # 鍖呭惈蹇呰鐨?USB 2.0 椹卞姩鍜屾枃浠剁郴缁熸敮鎸?        sed -i 's/# CONFIG_PACKAGE_kmod-usb-ohci is not set/CONFIG_PACKAGE_kmod-usb-ohci=y/' .config
         sed -i 's/# CONFIG_PACKAGE_kmod-usb2 is not set/CONFIG_PACKAGE_kmod-usb2=y/' .config
         sed -i 's/# CONFIG_PACKAGE_kmod-usb-storage is not set/CONFIG_PACKAGE_kmod-usb-storage=y/' .config
         sed -i 's/# CONFIG_PACKAGE_kmod-fs-ext4 is not set/CONFIG_PACKAGE_kmod-fs-ext4=y/' .config
@@ -194,13 +190,13 @@ jobs:
         sed -i 's/# CONFIG_PACKAGE_kmod-nls-utf8 is not set/CONFIG_PACKAGE_kmod-nls-utf8=y/' .config
         sed -i 's/# CONFIG_PACKAGE_kmod-nls-cp437 is not set/CONFIG_PACKAGE_kmod-nls-cp437=y/' .config
         
-        # NAS 核心组件：Samba4 + FTP + 自动挂载
+        # NAS 鏍稿績缁勪欢锛歋amba4 + FTP + 鑷姩鎸傝浇
         sed -i 's/# CONFIG_PACKAGE_luci-app-aria2 is not set/CONFIG_PACKAGE_luci-app-aria2=y/' .config
         sed -i 's/# CONFIG_PACKAGE_luci-app-samba4 is not set/CONFIG_PACKAGE_luci-app-samba4=y/' .config
         sed -i 's/# CONFIG_PACKAGE_luci-app-vsftpd is not set/CONFIG_PACKAGE_luci-app-vsftpd=y/' .config
         sed -i 's/# CONFIG_PACKAGE_block-mount is not set/CONFIG_PACKAGE_block-mount=y/' .config
         
-        # 极致性能优化：zRAM 虚拟内存 + CPU 频率调节
+        # 鏋佽嚧鎬ц兘浼樺寲锛歾RAM 铏氭嫙鍐呭瓨 + CPU 棰戠巼璋冭妭
         sed -i 's/# CONFIG_PACKAGE_zram-swap is not set/CONFIG_PACKAGE_zram-swap=y/' .config
         sed -i 's/# CONFIG_PACKAGE_luci-app-cpufreq is not set/CONFIG_PACKAGE_luci-app-cpufreq=y/' .config
         
@@ -238,8 +234,7 @@ jobs:
       if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
       run: |
         mkdir -p firmware
-        # 使用更稳健的查找方式，确保在编译失败时不会报错，并能正确处理软链接
-        if [ -d lede/bin/targets/ ]; then
+        # 浣跨敤鏇寸ǔ鍋ョ殑鏌ユ壘鏂瑰紡锛岀‘淇濆湪缂栬瘧澶辫触鏃朵笉浼氭姤閿欙紝骞惰兘姝ｇ‘澶勭悊杞摼鎺?        if [ -d lede/bin/targets/ ]; then
           find lede/bin/targets/ -type f \( -name "*.bin" -o -name "*.img" -o -name "*.tar.gz" \) -exec cp {} ./firmware/ \;
         fi
         if [ -d ./firmware ] && [ "$(ls -A ./firmware/)" ]; then
@@ -256,3 +251,4 @@ jobs:
       with:
         name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE }}
+# Modified at 2026-03-05 20:20:47
