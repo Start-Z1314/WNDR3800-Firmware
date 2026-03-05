@@ -61,7 +61,6 @@ jobs:
       run: |
         echo "Current workspace: $GITHUB_WORKSPACE"
         echo "DIY_P1_SH path: $GITHUB_WORKSPACE/$DIY_P1_SH"
-        ls -la "$GITHUB_WORKSPACE/WNDR3800_OpenWrt_Builder/" || echo "Directory not found"
         [ -e "$FEEDS_CONF" ] && cp "$FEEDS_CONF" lede/feeds.conf.default
         if [ -f "$GITHUB_WORKSPACE/$DIY_P1_SH" ]; then
           chmod +x "$GITHUB_WORKSPACE/$DIY_P1_SH"
@@ -93,7 +92,6 @@ jobs:
       run: |
         cd lede
         # 强制清理并锁定 WNDR3800 架构
-        # 强制清理并锁定 WNDR3800 架构
         sed -i 's/CONFIG_TARGET_ath79=.*/CONFIG_TARGET_ath79=y/' .config
         sed -i 's/CONFIG_TARGET_ath79_generic=.*/CONFIG_TARGET_ath79_generic=y/' .config
         sed -i 's/CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800=.*/CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800=y/' .config
@@ -116,8 +114,12 @@ jobs:
         sed -i 's/CONFIG_PACKAGE_dnsmasq_full_dhcpv6=y/# CONFIG_PACKAGE_dnsmasq_full_dhcpv6 is not set/' .config
         sed -i 's/CONFIG_PACKAGE_ipv6helper=y/# CONFIG_PACKAGE_ipv6helper is not set/' .config
         
-        # 方案 A：最大稳定性 + SSR Plus 启用
+        # 方案 A：最大稳定性 + SSR Plus 启用 (代理支持)
         sed -i 's/# CONFIG_PACKAGE_luci-app-ssr-plus is not set/CONFIG_PACKAGE_luci-app-ssr-plus=y/' .config
+        sed -i 's/# CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Shadowsocks is not set/CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Shadowsocks=y/' .config
+        sed -i 's/# CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_V2ray is not set/CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_V2ray=y/' .config
+        sed -i 's/# CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Trojan is not set/CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Trojan=y/' .config
+        sed -i 's/# CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Redsocks2 is not set/CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Redsocks2=y/' .config
         
         # 核心功能：Turbo ACC (SFE加速) - 方案 A 保持启用但禁用 BBR
         # WNDR3800 (ath79) 硬件不支持 Flow Offloading，必须强制使用 SFE 以避免冲突
@@ -151,11 +153,8 @@ jobs:
         sed -i 's/# CONFIG_PACKAGE_luci-app-access-control is not set/CONFIG_PACKAGE_luci-app-access-control=y/' .config
         sed -i 's/# CONFIG_PACKAGE_luci-app-wol is not set/CONFIG_PACKAGE_luci-app-wol=y/' .config
         sed -i 's/# CONFIG_PACKAGE_luci-app-nlbwmon is not set/CONFIG_PACKAGE_luci-app-nlbwmon=y/' .config
-        sed -i 's/# CONFIG_PACKAGE_luci-app-unblockmusic is not set/CONFIG_PACKAGE_luci-app-unblockmusic=y/' .config
-        sed -i 's/# CONFIG_PACKAGE_luci-app-arpbind is not set/CONFIG_PACKAGE_luci-app-arpbind=y/' .config
         sed -i 's/# CONFIG_PACKAGE_luci-app-autoreboot is not set/CONFIG_PACKAGE_luci-app-autoreboot=y/' .config
         sed -i 's/# CONFIG_PACKAGE_luci-app-filetransfer is not set/CONFIG_PACKAGE_luci-app-filetransfer=y/' .config
-        sed -i 's/# CONFIG_PACKAGE_luci-app-upnp is not set/CONFIG_PACKAGE_luci-app-upnp=y/' .config
         
         # Ensure Samba4 and vsftpd are enabled correctly
         sed -i 's/# CONFIG_PACKAGE_luci-app-samba4 is not set/CONFIG_PACKAGE_luci-app-samba4=y/' .config
