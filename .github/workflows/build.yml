@@ -28,7 +28,7 @@ jobs:
       run: |
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
         sudo -E apt-get -qq update
-        sudo -E apt-get -qq install $(curl -fsSL https://is.gd/depends_ubuntu_2204)
+        sudo -E apt-get -qq install $(curl -fsSL https://is.gd/depends_ubuntu_2204) dos2unix
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
@@ -45,6 +45,7 @@ jobs:
     - name: Load custom feeds
       run: |
         [ -e "$FEEDS_CONF" ] && cp "$FEEDS_CONF" lede/feeds.conf.default
+        dos2unix $GITHUB_WORKSPACE/$DIY_P1_SH
         chmod +x $GITHUB_WORKSPACE/$DIY_P1_SH
         cd lede
         $GITHUB_WORKSPACE/$DIY_P1_SH
@@ -58,6 +59,7 @@ jobs:
     - name: Load custom configuration
       run: |
         [ -e "$CONFIG_FILE" ] && cp "$CONFIG_FILE" lede/.config
+        dos2unix $GITHUB_WORKSPACE/$DIY_P2_SH
         chmod +x $GITHUB_WORKSPACE/$DIY_P2_SH
         cd lede
         $GITHUB_WORKSPACE/$DIY_P2_SH
@@ -89,8 +91,11 @@ jobs:
         echo "CONFIG_PACKAGE_luci-app-cpufreq=y" >> .config
         echo "CONFIG_PACKAGE_luci-app-zram=y" >> .config
         echo "CONFIG_PACKAGE_luci-app-vsftpd=y" >> .config
-        echo "CONFIG_PACKAGE_luci-app-eqos=y" >> .config
+        echo "CONFIG_PACKAGE_luci-app-gargoyle-qos=y" >> .config
         echo "CONFIG_PACKAGE_luci-theme-argon=y" >> .config
+        
+        # 确保 WAN 口交换机驱动
+        echo "CONFIG_PACKAGE_kmod-switch-rtl8366s=y" >> .config
         
         # 确保 USB 存储和文件系统支持
         echo "CONFIG_PACKAGE_kmod-usb-ohci=y" >> .config
@@ -102,6 +107,8 @@ jobs:
         echo "CONFIG_PACKAGE_block-mount=y" >> .config # 自动挂载
         
         make defconfig
+        # 再次强制锁定 4.14 内核，防止被 defconfig 覆盖
+        echo "CONFIG_LINUX_KERNEL_VERSION=\"4.14\"" >> .config
 
     - name: Download package
       run: |
