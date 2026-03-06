@@ -1,24 +1,17 @@
-name: Build WNDR3800 Performance Firmware
+name: Build WNDR3800 Lean 4.14 Firmware
 
 on:
   repository_dispatch:
   workflow_dispatch:
-    inputs:
-      ssh:
-        description: 'SSH connection to Actions'
-        required: false
-        default: 'false'
 
 env:
-  REPO_URL: https://github.com/openwrt/openwrt
-  REPO_BRANCH: openwrt-22.03
+  REPO_URL: https://github.com/coolsnowwolf/lede
+  REPO_BRANCH: master
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
   DIY_P1_SH: diy-part1.sh
   DIY_P2_SH: diy-part2.sh
-  UPLOAD_BIN_DIR: false
   UPLOAD_FIRMWARE: true
-  UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
 
 jobs:
@@ -28,11 +21,6 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@main
-
-    - name: Check Files
-      run: |
-        echo "Current directory: $PWD"
-        ls -R
 
     - name: Initialization environment
       env:
@@ -47,28 +35,19 @@ jobs:
         sudo mkdir -p /workdir
         sudo chown $USER:$GROUPS /workdir
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
-        echo "DEVICE_NAME=WNDR3800" >> $GITHUB_ENV
 
     - name: Clone source code
       working-directory: /workdir
       run: |
-        df -hT $PWD
         git clone $REPO_URL -b $REPO_BRANCH lede
         ln -sf /workdir/lede $GITHUB_WORKSPACE/lede
 
     - name: Load custom feeds
       run: |
-        echo "Current workspace: $GITHUB_WORKSPACE"
-        echo "DIY_P1_SH path: $GITHUB_WORKSPACE/$DIY_P1_SH"
         [ -e "$FEEDS_CONF" ] && cp "$FEEDS_CONF" lede/feeds.conf.default
-        if [ -f "$GITHUB_WORKSPACE/$DIY_P1_SH" ]; then
-          sed -i 's/\r$//' "$GITHUB_WORKSPACE/$DIY_P1_SH"
-          chmod +x "$GITHUB_WORKSPACE/$DIY_P1_SH"
-          cd lede
-          bash "$GITHUB_WORKSPACE/$DIY_P1_SH"
-        else
-          echo "Warning: $DIY_P1_SH not found, skipping"
-        fi
+        chmod +x $DIY_P1_SH
+        cd lede
+        ../$DIY_P1_SH
 
     - name: Update feeds
       run: cd lede && ./scripts/feeds update -a
@@ -79,73 +58,52 @@ jobs:
     - name: Load custom configuration
       run: |
         [ -e "$CONFIG_FILE" ] && cp "$CONFIG_FILE" lede/.config
-        if [ -f "$GITHUB_WORKSPACE/$DIY_P2_SH" ]; then
-          sed -i 's/\r$//' "$GITHUB_WORKSPACE/$DIY_P2_SH"
-          chmod +x "$GITHUB_WORKSPACE/$DIY_P2_SH"
-          cd lede
-          bash "$GITHUB_WORKSPACE/$DIY_P2_SH"
-        else
-          echo "Error: $DIY_P2_SH not found"
-          exit 1
-        fi
+        chmod +x $DIY_P2_SH
+        cd lede
+        ../$DIY_P2_SH
 
     - name: Generate Configuration
       run: |
         cd lede
-        # 1. 先运行一次 defconfig 以生成初始的 .config 文件
-        make defconfig
-
-        # 2. 强制锁定 WNDR3800 架构
-        sed -i 's/CONFIG_TARGET_ath79=.*/CONFIG_TARGET_ath79=y/' .config
-        sed -i 's/CONFIG_TARGET_ath79_generic=.*/CONFIG_TARGET_ath79_generic=y/' .config
-        sed -i 's/CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800=.*/CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800=y/' .config
+        # 强制指定 WNDR3800 架构
+        echo "CONFIG_TARGET_ath79=y" >> .config
+        echo "CONFIG_TARGET_ath79_generic=y" >> .config
+        echo "CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800=y" >> .config
         
-        # 3. 锁定内核版本 4.14
-        sed -i 's/CONFIG_LINUX_KERNEL_VERSION=.*/CONFIG_LINUX_KERNEL_VERSION="4.14"/' .config
+        # 强制锁定 4.14 内核 (Lean 源码支持)
+        echo "CONFIG_LINUX_KERNEL_VERSION=\"4.14\"" >> .config
         
-        # 4. 性能压缩与极致精简设置
-        sed -i 's/# CONFIG_STRIP_KERNEL_EXPORTS is not set/CONFIG_STRIP_KERNEL_EXPORTS=y/' .config
-        sed -i 's/# CONFIG_USE_MKLIBS is not set/CONFIG_USE_MKLIBS=y/' .config
-        sed -i 's/CONFIG_COLLECT_KERNEL_DEBUG=y/# CONFIG_COLLECT_KERNEL_DEBUG is not set/' .config
-        sed -i 's/# CONFIG_USE_UPX is not set/CONFIG_USE_UPX=y/' .config
+        # 极致精简与压缩
+        echo "CONFIG_USE_UPX=y" >> .config
+        echo "CONFIG_STRIP_KERNEL_EXPORTS=y" >> .config
+        echo "CONFIG_USE_MKLIBS=y" >> .config
         
-        # 5. 禁用 IPv6
-        sed -i 's/CONFIG_IPV6=y/# CONFIG_IPV6 is not set/' .config
-        sed -i 's/CONFIG_PACKAGE_dnsmasq_full_dhcpv6=y/# CONFIG_PACKAGE_dnsmasq_full_dhcpv6 is not set/' .config
-        sed -i 's/CONFIG_PACKAGE_ipv6helper=y/# CONFIG_PACKAGE_ipv6helper is not set/' .config
+        # 移除 IPv6
+        echo "# CONFIG_IPV6 is not set" >> .config
         
-        # 6. SSR Plus 核心包
-        sed -i 's/# CONFIG_PACKAGE_luci-app-ssr-plus is not set/CONFIG_PACKAGE_luci-app-ssr-plus=y/' .config
-        sed -i 's/# CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Shadowsocks is not set/CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_Shadowsocks=y/' .config
-        sed -i 's/# CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_V2ray is not set/CONFIG_PACKAGE_luci-app-ssr-plus_INCLUDE_V2ray=y/' .config
-        
-        # 7. Turbo ACC 硬件优化
-        sed -i 's/# CONFIG_PACKAGE_luci-app-turbo-acc is not set/CONFIG_PACKAGE_luci-app-turbo-acc=y/' .config
-        sed -i 's/CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_OFFLOADING=y/# CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_OFFLOADING is not set/' .config
-        sed -i 's/# CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_SHORTCUT_FE is not set/CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_SHORTCUT_FE=y/' .config
-        sed -i 's/CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_BBR_CCA=y/# CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_BBR_CCA is not set/' .config
-        
-        # 8. QoS 与常用插件
-        sed -i 's/# CONFIG_PACKAGE_luci-app-eqos is not set/CONFIG_PACKAGE_luci-app-eqos=y/' .config
-        sed -i 's/# CONFIG_PACKAGE_luci-app-wol is not set/CONFIG_PACKAGE_luci-app-wol=y/' .config
-        sed -i 's/# CONFIG_PACKAGE_luci-app-autoreboot is not set/CONFIG_PACKAGE_luci-app-autoreboot=y/' .config
-        
-        # 9. 解决 vsftpd 与 Samba 冲突
-        echo "CONFIG_PACKAGE_vsftpd-alt=n" >> .config
+        # 核心插件
+        # 核心插件与优化
+        echo "CONFIG_PACKAGE_luci-app-ssr-plus=y" >> .config
+        echo "CONFIG_PACKAGE_luci-app-turbo-acc=y" >> .config
+        echo "CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_SHORTCUT_FE=y" >> .config
+        echo "CONFIG_PACKAGE_luci-app-cpufreq=y" >> .config
+        echo "CONFIG_PACKAGE_luci-app-zram=y" >> .config
         echo "CONFIG_PACKAGE_luci-app-vsftpd=y" >> .config
-        echo "CONFIG_PACKAGE_autosamba=n" >> .config
-        echo "CONFIG_PACKAGE_luci-app-samba4=y" >> .config
-        echo "CONFIG_PACKAGE_luci-app-turboacc=n" >> .config
-
-        # 10. 主题与无线驱动
-        sed -i 's/# CONFIG_PACKAGE_luci-theme-argon is not set/CONFIG_PACKAGE_luci-theme-argon=y/' .config
-        sed -i 's/# CONFIG_PACKAGE_kmod-ath9k is not set/CONFIG_PACKAGE_kmod-ath9k=y/' .config
+        echo "CONFIG_PACKAGE_luci-app-eqos=y" >> .config
+        echo "CONFIG_PACKAGE_luci-theme-argon=y" >> .config
         
-        # 11. 再次运行 defconfig 应用以上所有 sed 修改
+        # 确保 USB 存储和文件系统支持
+        echo "CONFIG_PACKAGE_kmod-usb-ohci=y" >> .config
+        echo "CONFIG_PACKAGE_kmod-usb2=y" >> .config
+        echo "CONFIG_PACKAGE_kmod-usb-storage=y" >> .config
+        echo "CONFIG_PACKAGE_kmod-fs-ext4=y" >> .config
+        echo "CONFIG_PACKAGE_kmod-fs-vfat=y" >> .config
+        echo "CONFIG_PACKAGE_kmod-nls-utf8=y" >> .config
+        echo "CONFIG_PACKAGE_block-mount=y" >> .config # 自动挂载
+        
         make defconfig
 
     - name: Download package
-      id: package
       run: |
         cd lede
         make download -j8
@@ -153,36 +111,20 @@ jobs:
         find dl -size -1024c -exec rm -f {} \;
 
     - name: Compile the firmware
-      id: compile
       run: |
         cd lede
-        echo -e "$(nproc) thread compile"
         make -j$(nproc) || make -j1 || make -j1 V=s
-        echo "status=success" >> $GITHUB_OUTPUT
-
-    - name: Check space usage
-      if: (!cancelled())
-      run: df -hT
 
     - name: Organize files
       id: organize
-      if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
       run: |
         mkdir -p firmware
-        if [ -d lede/bin/targets/ ]; then
-          find lede/bin/targets/ -type f \( -name "*.bin" -o -name "*.img" -o -name "*.tar.gz" \) -exec cp {} ./firmware/ \;
-        fi
-        if [ -d ./firmware ] && [ "$(ls -A ./firmware/)" ]; then
-          echo "FIRMWARE=$GITHUB_WORKSPACE/firmware" >> $GITHUB_ENV
-          echo "status=success" >> $GITHUB_OUTPUT
-        else
-          echo "No firmware found"
-          echo "status=fail" >> $GITHUB_OUTPUT
-        fi
+        find lede/bin/targets/ -type f \( -name "*.bin" -o -name "*.img" \) -exec cp {} ./firmware/ \;
+        echo "status=success" >> $GITHUB_OUTPUT
 
     - name: Upload firmware directory
       uses: actions/upload-artifact@main
-      if: steps.organize.outputs.status == 'success' && !cancelled()
+      if: steps.organize.outputs.status == 'success'
       with:
-        name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-        path: ${{ env.FIRMWARE }}
+        name: WNDR3800_Lean_4.14_${{ env.FILE_DATE }}
+        path: ./firmware/*
