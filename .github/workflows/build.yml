@@ -45,9 +45,9 @@ jobs:
     - name: Load custom feeds
       run: |
         [ -e "$FEEDS_CONF" ] && cp "$FEEDS_CONF" lede/feeds.conf.default
-        chmod +x $DIY_P1_SH
+        chmod +x $GITHUB_WORKSPACE/$DIY_P1_SH
         cd lede
-        ../$DIY_P1_SH
+        $GITHUB_WORKSPACE/$DIY_P1_SH
 
     - name: Update feeds
       run: cd lede && ./scripts/feeds update -a
@@ -58,9 +58,9 @@ jobs:
     - name: Load custom configuration
       run: |
         [ -e "$CONFIG_FILE" ] && cp "$CONFIG_FILE" lede/.config
-        chmod +x $DIY_P2_SH
+        chmod +x $GITHUB_WORKSPACE/$DIY_P2_SH
         cd lede
-        ../$DIY_P2_SH
+        $GITHUB_WORKSPACE/$DIY_P2_SH
 
     - name: Generate Configuration
       run: |
