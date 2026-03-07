@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+
 # 锁定内核版本为 4.14
 if [ -f "target/linux/ath79/Makefile" ]; then
     sed -i 's/KERNEL_PATCHVER:=.*/KERNEL_PATCHVER:=4.14/g' target/linux/ath79/Makefile
