@@ -44,6 +44,9 @@ EOF
 echo "生成的 .config 前20行："
 head -20 .config
 
+# 设置终端类型以避免 ncurses 错误
+export TERM=linux
+
 # 使用 olddefconfig 填充默认值（不会覆盖已设置的选项）
 make olddefconfig || { echo "olddefconfig 失败"; exit 1; }
 
