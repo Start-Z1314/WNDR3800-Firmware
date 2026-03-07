@@ -21,7 +21,6 @@ sed -i 's/set wireless.default_radio${devidx}.ssid=OpenWrt/set wireless.default_
 # ------------------------------
 # 2. 创建 UCI 默认配置脚本 (所有预设写在这里)
 # ------------------------------
-# 先删除可能存在的旧文件
 rm -f package/base-files/files/etc/uci-defaults/99-init-settings
 
 cat << "EOF" > package/base-files/files/etc/uci-defaults/99-init-settings
@@ -85,7 +84,6 @@ uci set ssrplus.@global[0].chinadns_ng_trust_dns='8.8.8.8'
 uci set ssrplus.@global[0].udp_relay_server='1'
 uci set ssrplus.@global[0].tcp_fast_open='1'
 
-# 订阅设置 (占位符)
 uci set ssrplus.@subscribe[0].enabled='1'
 uci set ssrplus.@subscribe[0].subtype='0'
 uci set ssrplus.@subscribe[0].cron_time='0 3 * * *'
@@ -94,21 +92,21 @@ uci set ssrplus.@subscribe[0].sub_url='https://example.com/your-subscribe-url'
 uci commit ssrplus
 
 # ===============================================
-# 石像鬼 QoS 深度优化
+# 石像鬼 QoS 深度优化 (增强版)
 # ===============================================
 uci set qos.gargoyle.enabled='1'
 uci set qos.gargoyle.wan_iface='wan'
 uci set qos.gargoyle.uplink_smart='1'
+uci set qos.gargoyle.downlink_smart='1'
 uci set qos.gargoyle.ack_priority='1'
+uci set qos.gargoyle.default_class='4'
 
-# 带宽设置 (默认 100M/10M，请根据实际修改)
-DOWNLOAD_TOTAL="102400"
-UPLOAD_TOTAL="10240"
+DOWNLOAD_TOTAL="102400"   # 100Mbps
+UPLOAD_TOTAL="10240"      # 10Mbps
 uci set qos.gargoyle.download_bandwidth="${DOWNLOAD_TOTAL}"
 uci set qos.gargoyle.upload_bandwidth="${UPLOAD_TOTAL}"
 
-# 带宽分配百分比
-uci set qos.class_1.percent_min='30'
+uci set qos.class_1.percent_min='35'
 uci set qos.class_1.percent_max='95'
 uci set qos.class_2.percent_min='20'
 uci set qos.class_2.percent_max='80'
@@ -117,17 +115,19 @@ uci set qos.class_3.percent_max='60'
 uci set qos.class_4.percent_min='5'
 uci set qos.class_4.percent_max='40'
 
-# 分类规则
+# 游戏 (Highest)
 uci add qos rule
 uci set qos.@rule[-1].name='Game'
 uci set qos.@rule[-1].priority='Highest'
-uci set qos.@rule[-1].ports='7000-8000 27015-27030 3074 3478-3479 5060 5062 6000-6200 10000-20000'
+uci set qos.@rule[-1].ports='7000-8000 27015-27030 3074 3478-3479 5060 5062 6000-6200 10000-20000 30000-40000'
 
+# 网页浏览 (High)
 uci add qos rule
 uci set qos.@rule[-1].name='Web_HTTP'
 uci set qos.@rule[-1].priority='High'
 uci set qos.@rule[-1].ports='80 443 8080 8443'
 
+# 大流量网页降级 (Normal)
 uci add qos rule
 uci set qos.@rule[-1].name='Web_Large'
 uci set qos.@rule[-1].priority='Normal'
@@ -135,43 +135,38 @@ uci set qos.@rule[-1].ports='80 443 8080 8443'
 uci set qos.@rule[-1].threshold='5120'
 uci set qos.@rule[-1].threshold_unit='kb'
 
+# 视频流 (High)
 uci add qos rule
 uci set qos.@rule[-1].name='Video'
 uci set qos.@rule[-1].priority='High'
-uci set qos.@rule[-1].ports='80 443 1935 5223'
+uci set qos.@rule[-1].ports='80 443 1935 5223 8000-9000 10000-20000'
 
+# 聊天通讯 (High)
 uci add qos rule
 uci set qos.@rule[-1].name='Chat'
 uci set qos.@rule[-1].priority='High'
-uci set qos.@rule[-1].ports='53 80 443 5222 5223 5228 5229 5230 8000-8010'
+uci set qos.@rule[-1].ports='53 80 443 5222 5223 5228 5229 5230 8000-8010 8080 8443'
 
+# 下载工具 (Normal)
 uci add qos rule
 uci set qos.@rule[-1].name='Download'
 uci set qos.@rule[-1].priority='Normal'
-uci set qos.@rule[-1].ports='6881-6889 1863 5190 5000-5010 8080'
+uci set qos.@rule[-1].ports='6881-6889 1863 5190 5000-5010 8080 10000-20000'
 
 uci commit qos
 
 # ===============================================
 # 其他优化
 # ===============================================
-# 极致精简: 移除不必要的语言包 (编译时已处理，此处留空)
-# 所有配置完成
 exit 0
 EOF
 
 chmod +x package/base-files/files/etc/uci-defaults/99-init-settings
 echo "✓ 已创建 /etc/uci-defaults/99-init-settings"
 
-# ------------------------------
-# 3. 极致精简: 在 .config 中只保留中文和英文 (如果 .config 存在)
-# ------------------------------
 if [ -f ".config" ]; then
     sed -i 's/luci-i18n-.*-zh-cn/luci-i18n-base-zh-cn/g' .config
     echo "✓ 已精简语言包配置"
 fi
 
-# ===============================================
-# 完成
-# ===============================================
 echo "diy-part2.sh 执行完成 - 所有预设已就绪"
