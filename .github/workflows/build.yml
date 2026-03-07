@@ -1,8 +1,8 @@
 name: Build WNDR3800 Lean 4.14 Firmware
 
 on:
-  workflow_dispatch:      # 手动触发
-  repository_dispatch:    # API 触发
+  workflow_dispatch:
+  repository_dispatch:
 
 env:
   REPO_URL: https://github.com/coolsnowwolf/lede
@@ -76,54 +76,17 @@ jobs:
         cd lede
         $GITHUB_WORKSPACE/$DIY_P2_SH
 
-    - name: Generate Configuration
+    - name: Verify configuration
       run: |
         cd lede
-        
-        # 创建完整的配置文件
-        cat > .config <<EOF
-CONFIG_TARGET_ath79=y
-CONFIG_TARGET_ath79_generic=y
-CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800=y
-CONFIG_LINUX_KERNEL_VERSION="4.14"
-CONFIG_USE_UPX=y
-CONFIG_STRIP_KERNEL_EXPORTS=y
-CONFIG_USE_MKLIBS=y
-# CONFIG_IPV6 is not set
-CONFIG_PACKAGE_luci-app-ssr-plus=y
-CONFIG_PACKAGE_luci-app-turbo-acc=y
-CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_SHORTCUT_FE=y
-CONFIG_PACKAGE_luci-app-cpufreq=y
-CONFIG_PACKAGE_luci-app-zram=y
-CONFIG_PACKAGE_luci-app-vsftpd=y
-CONFIG_PACKAGE_luci-app-gargoyle-qos=y
-CONFIG_PACKAGE_luci-theme-argon=y
-CONFIG_PACKAGE_kmod-switch-rtl8366s=y
-CONFIG_PACKAGE_kmod-of-mdio=y
-CONFIG_PACKAGE_kmod-usb-ohci=y
-CONFIG_PACKAGE_kmod-usb2=y
-CONFIG_PACKAGE_kmod-usb-storage=y
-CONFIG_PACKAGE_kmod-fs-ext4=y
-CONFIG_PACKAGE_kmod-fs-vfat=y
-CONFIG_PACKAGE_kmod-nls-utf8=y
-CONFIG_PACKAGE_block-mount=y
-EOF
-
-        # 运行 defconfig 解析依赖
-        make defconfig || { echo "defconfig failed"; exit 1; }
-
-        # 锁定内核版本
-        sed -i 's/CONFIG_LINUX_KERNEL_VERSION=.*/CONFIG_LINUX_KERNEL_VERSION="4.14"/g' .config
-
-        # 精简语言包
-        sed -i 's/luci-i18n-.*-zh-cn/luci-i18n-base-zh-cn/g' .config
-
-        # 验证配置
         echo "=== 目标设备验证 ==="
-        grep "CONFIG_TARGET_ath79" .config
+        grep "CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800" .config || {
+          echo "❌ 错误：设备 netgear_wndr3800 未启用"
+          exit 1
+        }
         grep "CONFIG_TARGET_BOARD" .config
+        grep "CONFIG_TARGET_ARCH_PACKAGES" .config
         echo "=================="
-
         cp .config $GITHUB_WORKSPACE/final.config
 
     - name: Upload final .config
