@@ -1,8 +1,8 @@
-name: Build WNDR3800 Firmware
+name: Build WNDR3800 Lean 4.14 Firmware
 
 on:
-  workflow_dispatch:  # 手动触发
-  repository_dispatch:  # API触发
+  workflow_dispatch:      # 手动触发
+  repository_dispatch:    # API 触发
 
 env:
   REPO_URL: https://github.com/coolsnowwolf/lede
@@ -16,12 +16,11 @@ env:
 
 jobs:
   build:
-    name: Build WNDR3800
     runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4  # 使用 v4 而不是 main
+      uses: actions/checkout@v4
 
     - name: Initialization environment
       env:
@@ -147,7 +146,7 @@ EOF
     - name: Organize files
       run: |
         mkdir -p firmware
-        find lede/bin/targets/ -type f -name "*.bin" -o -name "*.img" -o -name "*.gz" | xargs -i cp {} firmware/
+        find lede/bin/targets/ -type f \( -name "*.bin" -o -name "*.img" -o -name "*.gz" \) -exec cp {} firmware/ \;
 
     - name: Upload firmware
       uses: actions/upload-artifact@v4
