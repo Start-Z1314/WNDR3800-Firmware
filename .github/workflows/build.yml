@@ -28,7 +28,6 @@ jobs:
       run: |
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
         sudo -E apt-get -qq update
-        # 使用经过验证的 OpenWrt 编译依赖脚本（自动适配 Ubuntu 22.04）
         sudo -E apt-get -qq install $(curl -fsSL https://is.gd/depends_ubuntu_2204) dos2unix
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
@@ -43,7 +42,6 @@ jobs:
         git clone $REPO_URL -b $REPO_BRANCH lede
         ln -sf /workdir/lede $GITHUB_WORKSPACE/lede
 
-    # 缓存dl和编译目录，加速二次编译
     - name: Cache build directories
       uses: actions/cache@v4
       env:
@@ -65,7 +63,6 @@ jobs:
         chmod +x $GITHUB_WORKSPACE/$DIY_P1_SH
         cd lede
         $GITHUB_WORKSPACE/$DIY_P1_SH
-        # 强制删除高版本内核配置，迫使系统回退至 4.14
         rm -f target/linux/ath79/config-5.*
         rm -f target/linux/ath79/config-6.*
 
@@ -86,23 +83,16 @@ jobs:
     - name: Generate Configuration
       run: |
         cd lede
-        # 强制指定 WNDR3800 架构
+        rm -f .config
         echo "CONFIG_TARGET_ath79=y" >> .config
         echo "CONFIG_TARGET_ath79_generic=y" >> .config
         echo "CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800=y" >> .config
-        
-        # 强制锁定 4.14 内核 (Lean 源码支持)
+        make defconfig
         echo "CONFIG_LINUX_KERNEL_VERSION=\"4.14\"" >> .config
-        
-        # 极致精简与压缩
         echo "CONFIG_USE_UPX=y" >> .config
         echo "CONFIG_STRIP_KERNEL_EXPORTS=y" >> .config
         echo "CONFIG_USE_MKLIBS=y" >> .config
-        
-        # 移除 IPv6
         echo "# CONFIG_IPV6 is not set" >> .config
-        
-        # 核心插件与优化
         echo "CONFIG_PACKAGE_luci-app-ssr-plus=y" >> .config
         echo "CONFIG_PACKAGE_luci-app-turbo-acc=y" >> .config
         echo "CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_SHORTCUT_FE=y" >> .config
@@ -111,12 +101,8 @@ jobs:
         echo "CONFIG_PACKAGE_luci-app-vsftpd=y" >> .config
         echo "CONFIG_PACKAGE_luci-app-gargoyle-qos=y" >> .config
         echo "CONFIG_PACKAGE_luci-theme-argon=y" >> .config
-        
-        # 确保 WAN 口交换机驱动及依赖
         echo "CONFIG_PACKAGE_kmod-switch-rtl8366s=y" >> .config
         echo "CONFIG_PACKAGE_kmod-of-mdio=y" >> .config
-        
-        # 确保 USB 存储和文件系统支持
         echo "CONFIG_PACKAGE_kmod-usb-ohci=y" >> .config
         echo "CONFIG_PACKAGE_kmod-usb2=y" >> .config
         echo "CONFIG_PACKAGE_kmod-usb-storage=y" >> .config
@@ -124,16 +110,14 @@ jobs:
         echo "CONFIG_PACKAGE_kmod-fs-vfat=y" >> .config
         echo "CONFIG_PACKAGE_kmod-nls-utf8=y" >> .config
         echo "CONFIG_PACKAGE_block-mount=y" >> .config
-        
         make defconfig
-        # 再次强制锁定 4.14 内核，防止被 defconfig 覆盖
         sed -i 's/CONFIG_LINUX_KERNEL_VERSION=.*/CONFIG_LINUX_KERNEL_VERSION="4.14"/g' .config
         echo "CONFIG_LINUX_KERNEL_VERSION=\"4.14\"" >> .config
-        
-        # 验证 Makefile 中的内核版本
-        grep "KERNEL_PATCHVER" target/linux/ath79/Makefile
-        
-        # 保存最终配置用于调试
+        echo "===== 当前目标设备 ====="
+        grep "CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800" .config
+        grep "CONFIG_TARGET_BOARD" .config
+        grep "CONFIG_TARGET_ARCH_PACKAGES" .config
+        echo "======================="
         cp .config $GITHUB_WORKSPACE/final.config
 
     - name: Upload final .config for debugging
