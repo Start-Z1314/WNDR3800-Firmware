@@ -67,13 +67,13 @@
 	    - name: Generate final configuration
 	      run: |
 	        cd lede
-	        make defconfig || { echo "❌ make defconfig 失败"; exit 1; }
-	        echo "=== 验证目标设备 ==="
+	        make defconfig || { echo "make defconfig failed"; exit 1; }
+	        echo "=== Verifying Target Device ==="
 	        grep "CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800" .config || {
-	          echo "❌ 错误：设备 netgear_wndr3800 未启用，请检查 .config 写入"
+	          echo "Error: Device netgear_wndr3800 not enabled"
 	          exit 1
 	        }
-	        echo "==================="
+	        echo "==============================="
 	    - name: Download package
 	      run: |
 	        cd lede
