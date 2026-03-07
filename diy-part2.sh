@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e  # 任何错误立即退出
+set -e
 
 echo "开始 diy-part2.sh..."
 
@@ -12,45 +12,44 @@ fi
 sed -i 's/set wireless.radio${devidx}.disabled=1/set wireless.radio${devidx}.disabled=0/g' package/kernel/mac80211/files/lib/wifi/mac80211.sh
 sed -i 's/set wireless.default_radio${devidx}.ssid=OpenWrt/set wireless.default_radio${devidx}.ssid=5G/g' package/kernel/mac80211/files/lib/wifi/mac80211.sh
 
-# 生成完整的 .config 配置文件
-cat > .config <<EOF
-CONFIG_TARGET_ath79=y
-CONFIG_TARGET_ath79_generic=y
-CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800=y
-CONFIG_LINUX_KERNEL_VERSION="4.14"
-CONFIG_USE_UPX=y
-CONFIG_STRIP_KERNEL_EXPORTS=y
-CONFIG_USE_MKLIBS=y
-# CONFIG_IPV6 is not set
-CONFIG_PACKAGE_luci-app-ssr-plus=y
-CONFIG_PACKAGE_luci-app-turbo-acc=y
-CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_SHORTCUT_FE=y
-CONFIG_PACKAGE_luci-app-cpufreq=y
-CONFIG_PACKAGE_luci-app-zram=y
-CONFIG_PACKAGE_luci-app-vsftpd=y
-CONFIG_PACKAGE_luci-app-gargoyle-qos=y
-CONFIG_PACKAGE_luci-theme-argon=y
-CONFIG_PACKAGE_kmod-switch-rtl8366s=y
-CONFIG_PACKAGE_kmod-of-mdio=y
-CONFIG_PACKAGE_kmod-usb-ohci=y
-CONFIG_PACKAGE_kmod-usb2=y
-CONFIG_PACKAGE_kmod-usb-storage=y
-CONFIG_PACKAGE_kmod-fs-ext4=y
-CONFIG_PACKAGE_kmod-fs-vfat=y
-CONFIG_PACKAGE_kmod-nls-utf8=y
-CONFIG_PACKAGE_block-mount=y
-EOF
+# 先运行 defconfig 生成默认配置（避免空配置）
+make defconfig
 
-echo "生成的 .config 前20行："
-head -20 .config
+# 使用 scripts/config 设置目标平台和各项配置
+./scripts/config --enable CONFIG_TARGET_ath79
+./scripts/config --enable CONFIG_TARGET_ath79_generic
+./scripts/config --enable CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800
+./scripts/config --set-str CONFIG_LINUX_KERNEL_VERSION "4.14"
+./scripts/config --enable CONFIG_USE_UPX
+./scripts/config --enable CONFIG_STRIP_KERNEL_EXPORTS
+./scripts/config --enable CONFIG_USE_MKLIBS
+./scripts/config --disable CONFIG_IPV6
 
-# 设置终端类型以避免 ncurses 错误
-export TERM=linux
+# 开启插件
+./scripts/config --enable CONFIG_PACKAGE_luci-app-ssr-plus
+./scripts/config --enable CONFIG_PACKAGE_luci-app-turbo-acc
+./scripts/config --enable CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_SHORTCUT_FE
+./scripts/config --enable CONFIG_PACKAGE_luci-app-cpufreq
+./scripts/config --enable CONFIG_PACKAGE_luci-app-zram
+./scripts/config --enable CONFIG_PACKAGE_luci-app-vsftpd
+./scripts/config --enable CONFIG_PACKAGE_luci-app-gargoyle-qos
+./scripts/config --enable CONFIG_PACKAGE_luci-theme-argon
 
-# 使用 olddefconfig 填充默认值（不会覆盖已设置的选项）
-make olddefconfig || { echo "olddefconfig 失败"; exit 1; }
+# 开启驱动
+./scripts/config --enable CONFIG_PACKAGE_kmod-switch-rtl8366s
+./scripts/config --enable CONFIG_PACKAGE_kmod-of-mdio
+./scripts/config --enable CONFIG_PACKAGE_kmod-usb-ohci
+./scripts/config --enable CONFIG_PACKAGE_kmod-usb2
+./scripts/config --enable CONFIG_PACKAGE_kmod-usb-storage
+./scripts/config --enable CONFIG_PACKAGE_kmod-fs-ext4
+./scripts/config --enable CONFIG_PACKAGE_kmod-fs-vfat
+./scripts/config --enable CONFIG_PACKAGE_kmod-nls-utf8
+./scripts/config --enable CONFIG_PACKAGE_block-mount
 
-# 再次强制锁定内核版本（防止被覆盖）
+# 运行 olddefconfig 解析依赖（不会覆盖已设置选项）
+make olddefconfig
+
+# 再次强制锁定内核版本（确保）
 sed -i 's/CONFIG_LINUX_KERNEL_VERSION=.*/CONFIG_LINUX_KERNEL_VERSION="4.14"/g' .config
 
 # 精简语言包（只保留中文和英文）
