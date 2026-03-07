@@ -83,19 +83,40 @@ jobs:
     - name: Generate Configuration
       run: |
         cd lede
+        
+        # 1. 直接创建完整的 seed 配置文件
+        cat > .config <<EOF
+CONFIG_TARGET_ath79=y
+CONFIG_TARGET_ath79_generic=y
+CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800=y
+CONFIG_LINUX_KERNEL_VERSION="4.14"
+CONFIG_USE_UPX=y
+CONFIG_STRIP_KERNEL_EXPORTS=y
+CONFIG_USE_MKLIBS=y
+# CONFIG_IPV6 is not set
+CONFIG_PACKAGE_luci-app-ssr-plus=y
+CONFIG_PACKAGE_luci-app-turbo-acc=y
+CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_SHORTCUT_FE=y
+CONFIG_PACKAGE_luci-app-cpufreq=y
+CONFIG_PACKAGE_luci-app-zram=y
+CONFIG_PACKAGE_luci-app-vsftpd=y
+CONFIG_PACKAGE_luci-app-gargoyle-qos=y
+CONFIG_PACKAGE_luci-theme-argon=y
+CONFIG_PACKAGE_kmod-switch-rtl8366s=y
+CONFIG_PACKAGE_kmod-of-mdio=y
+CONFIG_PACKAGE_kmod-usb-ohci=y
+CONFIG_PACKAGE_kmod-usb2=y
+CONFIG_PACKAGE_kmod-usb-storage=y
+CONFIG_PACKAGE_kmod-fs-ext4=y
+CONFIG_PACKAGE_kmod-fs-vfat=y
+CONFIG_PACKAGE_kmod-nls-utf8=y
+CONFIG_PACKAGE_block-mount=y
+EOF
 
-        # 1. 生成默认配置
-        make defconfig
+        # 2. 运行 defconfig 来解析依赖
+        make defconfig || { echo "❌ make defconfig 失败"; exit 1; }
 
-        # 2. 写入目标平台配置
-        echo "CONFIG_TARGET_ath79=y" >> .config
-        echo "CONFIG_TARGET_ath79_generic=y" >> .config
-        echo "CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800=y" >> .config
-
-        # 3. 运行 oldconfig 整合配置（自动使用默认值）
-        make oldconfig
-
-        # 4. 验证设备是否被正确选中
+        # 3. 验证设备是否被正确选中
         echo "🔍 验证当前设备配置："
         grep "CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800" .config || {
           echo "❌ 错误：设备 netgear_wndr3800 未在 .config 中启用"
@@ -104,41 +125,14 @@ jobs:
           exit 1
         }
 
-        # 5. 添加其他自定义配置
-        echo "CONFIG_LINUX_KERNEL_VERSION=\"4.14\"" >> .config
-        echo "CONFIG_USE_UPX=y" >> .config
-        echo "CONFIG_STRIP_KERNEL_EXPORTS=y" >> .config
-        echo "CONFIG_USE_MKLIBS=y" >> .config
-        echo "# CONFIG_IPV6 is not set" >> .config
-        echo "CONFIG_PACKAGE_luci-app-ssr-plus=y" >> .config
-        echo "CONFIG_PACKAGE_luci-app-turbo-acc=y" >> .config
-        echo "CONFIG_PACKAGE_luci-app-turbo-acc_INCLUDE_SHORTCUT_FE=y" >> .config
-        echo "CONFIG_PACKAGE_luci-app-cpufreq=y" >> .config
-        echo "CONFIG_PACKAGE_luci-app-zram=y" >> .config
-        echo "CONFIG_PACKAGE_luci-app-vsftpd=y" >> .config
-        echo "CONFIG_PACKAGE_luci-app-gargoyle-qos=y" >> .config
-        echo "CONFIG_PACKAGE_luci-theme-argon=y" >> .config
-        echo "CONFIG_PACKAGE_kmod-switch-rtl8366s=y" >> .config
-        echo "CONFIG_PACKAGE_kmod-of-mdio=y" >> .config
-        echo "CONFIG_PACKAGE_kmod-usb-ohci=y" >> .config
-        echo "CONFIG_PACKAGE_kmod-usb2=y" >> .config
-        echo "CONFIG_PACKAGE_kmod-usb-storage=y" >> .config
-        echo "CONFIG_PACKAGE_kmod-fs-ext4=y" >> .config
-        echo "CONFIG_PACKAGE_kmod-fs-vfat=y" >> .config
-        echo "CONFIG_PACKAGE_kmod-nls-utf8=y" >> .config
-        echo "CONFIG_PACKAGE_block-mount=y" >> .config
-
-        # 6. 再次运行 oldconfig 整合所有选项
-        make oldconfig
-
-        # 7. 强制锁定内核版本（确保不会被覆盖）
+        # 4. 强制锁定内核版本
         sed -i 's/CONFIG_LINUX_KERNEL_VERSION=.*/CONFIG_LINUX_KERNEL_VERSION="4.14"/g' .config
         echo "CONFIG_LINUX_KERNEL_VERSION=\"4.14\"" >> .config
 
-        # 8. 精简语言包：只保留中文和英文
+        # 5. 精简语言包
         sed -i 's/luci-i18n-.*-zh-cn/luci-i18n-base-zh-cn/g' .config
 
-        # 9. 最终验证并保存配置
+        # 6. 最终验证并保存配置
         echo "===== 最终目标设备 ====="
         grep "CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800" .config
         grep "CONFIG_TARGET_BOARD" .config
