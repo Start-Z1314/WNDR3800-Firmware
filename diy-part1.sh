@@ -14,13 +14,9 @@
 echo "正在锁定 ath79 内核版本为 4.14..."
 
 if [ -f "target/linux/ath79/Makefile" ]; then
-    # 备份原文件（可选）
     cp target/linux/ath79/Makefile target/linux/ath79/Makefile.bak
-    
-    # 修改内核版本
     sed -i 's/KERNEL_PATCHVER:=.*/KERNEL_PATCHVER:=4.14/g' target/linux/ath79/Makefile
     sed -i 's/KERNEL_TESTING_PATCHVER:=.*/KERNEL_TESTING_PATCHVER:=4.14/g' target/linux/ath79/Makefile
-    
     echo "✓ 内核版本修改完成，当前配置："
     grep "KERNEL_PATCHVER" target/linux/ath79/Makefile | sed 's/^/  /'
 else
@@ -31,20 +27,16 @@ fi
 
 # 3. 合并安全补丁 (CVE-2026-24803 / CVE-2026-24804)
 echo "正在合并安全补丁..."
-# 进入源码根目录 (已在 lede 目录下)
-# mt7615d 驱动修复 (PR #13346)
 if [ -d "package/lean/mt/drivers/mt7615d" ]; then
     echo "应用 mt7615d 驱动补丁 (CVE-2026-24803)..."
     wget -qO- https://github.com/coolsnowwolf/lede/pull/13346.patch | git apply || echo "警告: mt7615d 补丁应用失败，继续编译"
 fi
-
-# mt7603e 驱动修复 (PR #13368)
 if [ -d "package/lean/mt/drivers/mt7603e" ]; then
     echo "应用 mt7603e 驱动补丁 (CVE-2026-24804)..."
     wget -qO- https://github.com/coolsnowwolf/lede/pull/13368.patch | git apply || echo "警告: mt7603e 补丁应用失败，继续编译"
 fi
 
-# 4. 额外处理：删除可能的高版本内核配置，防止干扰
+# 4. 清理高版本内核配置
 rm -f target/linux/ath79/config-5.* 2>/dev/null
 rm -f target/linux/ath79/config-6.* 2>/dev/null
 echo "✓ 已清理 5.x/6.x 内核配置文件"
