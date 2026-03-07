@@ -30,6 +30,7 @@ echo "uci set wireless.@wifi-iface[1].encryption='psk2'" >> package/base-files/f
 echo "uci set wireless.radio0.txpower='20'" >> package/base-files/files/etc/uci-defaults/99-init-settings
 echo "uci set wireless.radio1.txpower='20'" >> package/base-files/files/etc/uci-defaults/99-init-settings
 echo "uci commit wireless" >> package/base-files/files/etc/uci-defaults/99-init-settings
+echo "wifi up" >> package/base-files/files/etc/uci-defaults/99-init-settings # 确保 WiFi 接口在启动时被启用
 
 # 5. 极致精简：移除不必要的语言包 (只保留中文和英文)
 sed -i 's/luci-i18n-.*-zh-cn/luci-i18n-base-zh-cn/g' .config
