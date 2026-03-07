@@ -50,8 +50,8 @@ head -20 .config
 export TERM=linux
 export NCURSES_NO_UTF8_ACS=1
 
-# 运行 olddefconfig 填充依赖（不会覆盖已设置的选项）
-make olddefconfig || { echo "❌ olddefconfig 失败"; exit 1; }
+# 使用 defconfig 生成完整配置（非交互式）
+make defconfig || { echo "❌ make defconfig 失败"; exit 1; }
 
 # 精简语言包（只保留中文和英文）
 sed -i 's/luci-i18n-.*-zh-cn/luci-i18n-base-zh-cn/g' .config
