@@ -15,7 +15,7 @@ sed -i 's/set wireless.default_radio${devidx}.ssid=OpenWrt/set wireless.default_
 # 删除任何已有的 .config，确保从头开始
 rm -f .config
 
-# 直接写入我们需要的配置（不包含 CONFIG_LINUX_KERNEL_VERSION，由 diy-part1.sh 负责锁定内核）
+# 直接写入我们需要的配置（内核版本由 diy-part1.sh 通过修改 Makefile 锁定）
 cat > .config <<EOF
 CONFIG_TARGET_ath79=y
 CONFIG_TARGET_ath79_generic=y
@@ -50,8 +50,8 @@ head -20 .config
 export TERM=linux
 export NCURSES_NO_UTF8_ACS=1
 
-# 使用 defconfig 生成完整配置（非交互式）
-make defconfig || { echo "❌ make defconfig 失败"; exit 1; }
+# 使用 olddefconfig 填充依赖，并强制非交互
+make olddefconfig < /dev/null || { echo "❌ make olddefconfig 失败"; exit 1; }
 
 # 精简语言包（只保留中文和英文）
 sed -i 's/luci-i18n-.*-zh-cn/luci-i18n-base-zh-cn/g' .config
