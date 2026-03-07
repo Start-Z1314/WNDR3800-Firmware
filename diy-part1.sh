@@ -10,7 +10,7 @@
 # sed -i '$a src-git passwall https://github.com/xiaorouji/openwrt-passwall.git' feeds.conf.default
 # echo "✓ 已添加 passwall 源"
 
-# 2. 强制锁定内核版本为 4.14 (核心操作)
+# 2. 强制锁定内核版本为 4.14
 echo "正在锁定 ath79 内核版本为 4.14..."
 
 if [ -f "target/linux/ath79/Makefile" ]; then
