@@ -86,7 +86,6 @@ jobs:
         # 移除 IPv6
         echo "# CONFIG_IPV6 is not set" >> .config
         
-        # 核心插件
         # 核心插件与优化
         echo "CONFIG_PACKAGE_luci-app-ssr-plus=y" >> .config
         echo "CONFIG_PACKAGE_luci-app-turbo-acc=y" >> .config
@@ -107,15 +106,13 @@ jobs:
         echo "CONFIG_PACKAGE_kmod-fs-ext4=y" >> .config
         echo "CONFIG_PACKAGE_kmod-fs-vfat=y" >> .config
         echo "CONFIG_PACKAGE_kmod-nls-utf8=y" >> .config
-        echo "CONFIG_PACKAGE_block-mount=y" >> .config # 自动挂载
+        echo "CONFIG_PACKAGE_block-mount=y" >> .config
         
         make defconfig
         # 再次强制锁定 4.14 内核，防止被 defconfig 覆盖
         echo "CONFIG_LINUX_KERNEL_VERSION=\"4.14\"" >> .config
         
-        # 生成最终配置，用于调试
-        make menuconfig # 这将生成 .config 文件，但会暂停 Actions
-        # 为了不暂停，我们直接保存 .config
+        # 保存最终配置用于调试
         cp .config $GITHUB_WORKSPACE/final.config
 
     - name: Upload final .config for debugging
