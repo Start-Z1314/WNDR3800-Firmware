@@ -49,6 +49,9 @@ jobs:
         chmod +x $GITHUB_WORKSPACE/$DIY_P1_SH
         cd lede
         $GITHUB_WORKSPACE/$DIY_P1_SH
+        # 强制删除高版本内核配置，迫使系统回退至 4.14
+        rm -f target/linux/ath79/config-5.*
+        rm -f target/linux/ath79/config-6.*
 
     - name: Update feeds
       run: cd lede && ./scripts/feeds update -a
