@@ -1,19 +1,23 @@
 	#!/bin/bash
 	set -e
 	echo "开始执行 diy-part2.sh..."
-	# 1. 强制修改默认主题为 Argon
+	# 1. 强制修改默认主题
 	if [ -f "feeds/luci/collections/luci/Makefile" ]; then
 	    sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/collections/luci/Makefile
 	    echo "✓ 默认主题已修改为 Argon"
+	else
+	    echo "⚠️ 未找到 Luci Makefile，跳过主题修改"
 	fi
-	# 2. WiFi 物理修改（强制开启）
-	if [ -f "package/kernel/mac80211/files/lib/wifi/mac80211.sh" ]; then
-	    sed -i 's/set wireless.radio${devidx}.disabled=1/set wireless.radio${devidx}.disabled=0/g' package/kernel/mac80211/files/lib/wifi/mac80211.sh
-	    sed -i 's/set wireless.default_radio${devidx}.ssid=OpenWrt/set wireless.default_radio${devidx}.ssid=5G/g' package/kernel/mac80211/files/lib/wifi/mac80211.sh
+	# 2. WiFi 物理修改（增加文件存在性检查，防止报错）
+	WIFI_SCRIPT="package/kernel/mac80211/files/lib/wifi/mac80211.sh"
+	if [ -f "$WIFI_SCRIPT" ]; then
+	    sed -i 's/set wireless.radio${devidx}.disabled=1/set wireless.radio${devidx}.disabled=0/g' "$WIFI_SCRIPT"
+	    sed -i 's/set wireless.default_radio${devidx}.ssid=OpenWrt/set wireless.default_radio${devidx}.ssid=5G/g' "$WIFI_SCRIPT"
 	    echo "✓ WiFi 已强制开启，默认 SSID 改为 5G"
+	else
+	    echo "⚠️ 未找到 mac80211.sh，跳过 WiFi 修改"
 	fi
-	# 3. 写入完整的 .config 配置文件
-	# 注意：此处只写入文件，不运行 make menuconfig
+	# 3. 写入 .config 配置文件
 	cat > .config <<EOF
 	CONFIG_TARGET_ath79=y
 	CONFIG_TARGET_ath79_generic=y
@@ -45,10 +49,8 @@
 	mkdir -p package/base-files/files/etc/uci-defaults
 	cat > package/base-files/files/etc/uci-defaults/99-init-settings <<'EOF'
 	#!/bin/sh
-	# 系统设置
 	uci set system.@system[0].hostname='OpenWrt'
 	uci commit system
-	# WiFi 设置
 	uci set wireless.radio0.country='US'
 	uci set wireless.radio1.country='US'
 	uci set wireless.radio0.channel='4'
@@ -63,20 +65,16 @@
 	uci set wireless.@wifi-iface[1].encryption='psk2'
 	uci commit wireless
 	wifi up
-	# Turbo ACC 加速
 	uci set turboacc.config.sfe_flow='1'
 	uci set turboacc.config.dns_cache='1'
 	uci commit turboacc
-	# zRAM 交换内存
 	uci set zram.config.enabled='1'
 	uci set zram.config.zram_size='64'
 	uci commit zram
-	# CPU 频率管理
 	uci set cpufreq.default.governor='performance'
 	uci set cpufreq.default.min_freq='800000'
 	uci set cpufreq.default.max_freq='800000'
 	uci commit cpufreq
-	# SSR Plus+ 代理设置
 	uci set ssrplus.@global[0].global_mode='1'
 	uci set ssrplus.@global[0].dns_hijack='1'
 	uci set ssrplus.@global[0].chinadns_ng_enable='1'
@@ -89,17 +87,14 @@
 	uci set ssrplus.@subscribe[0].cron_time='0 3 * * *'
 	uci set ssrplus.@subscribe[0].sub_url='https://example.com/your-subscribe-url'
 	uci commit ssrplus
-	# 石像鬼 QoS 设置
 	uci set qos.gargoyle.enabled='1'
 	uci set qos.gargoyle.wan_iface='wan'
 	uci set qos.gargoyle.uplink_smart='1'
 	uci set qos.gargoyle.downlink_smart='1'
 	uci set qos.gargoyle.ack_priority='1'
 	uci set qos.gargoyle.default_class='4'
-	DOWNLOAD_TOTAL="102400"
-	UPLOAD_TOTAL="10240"
-	uci set qos.gargoyle.download_bandwidth="${DOWNLOAD_TOTAL}"
-	uci set qos.gargoyle.upload_bandwidth="${UPLOAD_TOTAL}"
+	uci set qos.gargoyle.download_bandwidth='102400'
+	uci set qos.gargoyle.upload_bandwidth='10240'
 	uci set qos.class_1.percent_min='35'
 	uci set qos.class_1.percent_max='95'
 	uci set qos.class_2.percent_min='20'
@@ -108,36 +103,9 @@
 	uci set qos.class_3.percent_max='60'
 	uci set qos.class_4.percent_min='5'
 	uci set qos.class_4.percent_max='40'
-	# QoS 规则
-	uci add qos rule
-	uci set qos.@rule[-1].name='Game'
-	uci set qos.@rule[-1].priority='Highest'
-	uci set qos.@rule[-1].ports='7000-8000 27015-27030 3074 3478-3479 5060 5062 6000-6200 10000-20000 30000-40000'
-	uci add qos rule
-	uci set qos.@rule[-1].name='Web_HTTP'
-	uci set qos.@rule[-1].priority='High'
-	uci set qos.@rule[-1].ports='80 443 8080 8443'
-	uci add qos rule
-	uci set qos.@rule[-1].name='Web_Large'
-	uci set qos.@rule[-1].priority='Normal'
-	uci set qos.@rule[-1].ports='80 443 8080 8443'
-	uci set qos.@rule[-1].threshold='5120'
-	uci set qos.@rule[-1].threshold_unit='kb'
-	uci add qos rule
-	uci set qos.@rule[-1].name='Video'
-	uci set qos.@rule[-1].priority='High'
-	uci set qos.@rule[-1].ports='80 443 1935 5223 8000-9000 10000-20000'
-	uci add qos rule
-	uci set qos.@rule[-1].name='Chat'
-	uci set qos.@rule[-1].priority='High'
-	uci set qos.@rule[-1].ports='53 80 443 5222 5223 5228 5229 5230 8000-8010 8080 8443'
-	uci add qos rule
-	uci set qos.@rule[-1].name='Download'
-	uci set qos.@rule[-1].priority='Normal'
-	uci set qos.@rule[-1].ports='6881-6889 1863 5190 5000-5010 8080 10000-20000'
 	uci commit qos
 	exit 0
 	EOF
 	chmod +x package/base-files/files/etc/uci-defaults/99-init-settings
 	echo "✓ UCI 默认配置脚本已创建"
-	echo "diy-part2.sh 执行完成 - 配置已生成"
+	echo "diy-part2.sh 执行完成"
