@@ -96,8 +96,9 @@ jobs:
         echo "CONFIG_PACKAGE_luci-app-gargoyle-qos=y" >> .config
         echo "CONFIG_PACKAGE_luci-theme-argon=y" >> .config
         
-        # 确保 WAN 口交换机驱动
+        # 确保 WAN 口交换机驱动及依赖
         echo "CONFIG_PACKAGE_kmod-switch-rtl8366s=y" >> .config
+        echo "CONFIG_PACKAGE_kmod-of-mdio=y" >> .config
         
         # 确保 USB 存储和文件系统支持
         echo "CONFIG_PACKAGE_kmod-usb-ohci=y" >> .config
@@ -110,7 +111,11 @@ jobs:
         
         make defconfig
         # 再次强制锁定 4.14 内核，防止被 defconfig 覆盖
+        sed -i 's/CONFIG_LINUX_KERNEL_VERSION=.*/CONFIG_LINUX_KERNEL_VERSION="4.14"/g' .config
         echo "CONFIG_LINUX_KERNEL_VERSION=\"4.14\"" >> .config
+        
+        # 验证 Makefile 中的内核版本
+        grep "KERNEL_PATCHVER" target/linux/ath79/Makefile
         
         # 保存最终配置用于调试
         cp .config $GITHUB_WORKSPACE/final.config
