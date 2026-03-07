@@ -12,22 +12,14 @@ fi
 sed -i 's/set wireless.radio${devidx}.disabled=1/set wireless.radio${devidx}.disabled=0/g' package/kernel/mac80211/files/lib/wifi/mac80211.sh
 sed -i 's/set wireless.default_radio${devidx}.ssid=OpenWrt/set wireless.default_radio${devidx}.ssid=5G/g' package/kernel/mac80211/files/lib/wifi/mac80211.sh
 
-# 1. 先生成默认配置（通常是 x86）
-make defconfig
+# 删除任何已有的 .config，确保从头开始
+rm -f .config
 
-# 2. 删除所有 CONFIG_TARGET_ 开头的行，清除旧的目标配置
-sed -i '/^CONFIG_TARGET_/d' .config
-
-# 3. 添加我们需要的目标平台配置
-cat >> .config <<EOF
+# 直接写入我们需要的配置（不包含 CONFIG_LINUX_KERNEL_VERSION，由 diy-part1.sh 负责锁定内核）
+cat > .config <<EOF
 CONFIG_TARGET_ath79=y
 CONFIG_TARGET_ath79_generic=y
 CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800=y
-EOF
-
-# 4. 添加其他自定义配置
-cat >> .config <<EOF
-CONFIG_LINUX_KERNEL_VERSION="4.14"
 CONFIG_USE_UPX=y
 CONFIG_STRIP_KERNEL_EXPORTS=y
 CONFIG_USE_MKLIBS=y
@@ -58,22 +50,19 @@ head -20 .config
 export TERM=linux
 export NCURSES_NO_UTF8_ACS=1
 
-# 5. 运行 olddefconfig 填充依赖（不会覆盖已设置的选项）
+# 运行 olddefconfig 填充依赖（不会覆盖已设置的选项）
 make olddefconfig || { echo "❌ olddefconfig 失败"; exit 1; }
 
-# 6. 再次强制锁定内核版本（防止被覆盖）
-sed -i 's/CONFIG_LINUX_KERNEL_VERSION=.*/CONFIG_LINUX_KERNEL_VERSION="4.14"/g' .config
-
-# 7. 精简语言包（只保留中文和英文）
+# 精简语言包（只保留中文和英文）
 sed -i 's/luci-i18n-.*-zh-cn/luci-i18n-base-zh-cn/g' .config
 
-# 8. 验证设备是否启用
+# 验证设备是否启用
 if ! grep -q "CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800" .config; then
     echo "❌ 错误：设备 netgear_wndr3800 未在 .config 中启用"
     exit 1
 fi
 
-# 9. 创建 UCI 默认配置脚本（用于第一次启动时应用设置）
+# 创建 UCI 默认配置脚本（用于第一次启动时应用设置）
 mkdir -p package/base-files/files/etc/uci-defaults
 cat > package/base-files/files/etc/uci-defaults/99-init-settings <<'EOF'
 #!/bin/sh
