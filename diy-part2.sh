@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# 1. 物理修改 WiFi 默认设置 (比 uci-defaults 更强力)
+# 修改 mac80211.sh 脚本，使 WiFi 默认开启，并设置默认 SSID 和信道
+sed -i 's/set wireless.radio${devidx}.disabled=1/set wireless.radio${devidx}.disabled=0/g' package/kernel/mac80211/files/lib/wifi/mac80211.sh
+sed -i 's/set wireless.default_radio${devidx}.ssid=OpenWrt/set wireless.default_radio${devidx}.ssid=5G/g' package/kernel/mac80211/files/lib/wifi/mac80211.sh
+
 # 移除默认 IP、密码预设，由用户自行配置
 # 调整 WiFi 配置
 
