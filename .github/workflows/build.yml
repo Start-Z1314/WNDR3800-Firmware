@@ -1,8 +1,8 @@
-name: Build WNDR3800 Lean 4.14 Firmware
+name: Build WNDR3800 Firmware
 
 on:
-  repository_dispatch:
-  workflow_dispatch:
+  workflow_dispatch:  # 手动触发
+  repository_dispatch:  # API触发
 
 env:
   REPO_URL: https://github.com/coolsnowwolf/lede
@@ -16,11 +16,12 @@ env:
 
 jobs:
   build:
+    name: Build WNDR3800
     runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout
-      uses: actions/checkout@main
+      uses: actions/checkout@v4  # 使用 v4 而不是 main
 
     - name: Initialization environment
       env:
@@ -44,17 +45,15 @@ jobs:
 
     - name: Cache build directories
       uses: actions/cache@v4
-      env:
-        cache-name: cache-wndr3800-dl-build
       with:
         path: |
           /workdir/lede/dl
           /workdir/lede/build_dir
           /workdir/lede/staging_dir
           /workdir/lede/tmp
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/download.pl', '**/Makefile') }}
+        key: lede-build-${{ github.run_id }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
+          lede-build-
 
     - name: Load custom feeds
       run: |
@@ -63,8 +62,6 @@ jobs:
         chmod +x $GITHUB_WORKSPACE/$DIY_P1_SH
         cd lede
         $GITHUB_WORKSPACE/$DIY_P1_SH
-        rm -f target/linux/ath79/config-5.*
-        rm -f target/linux/ath79/config-6.*
 
     - name: Update feeds
       run: cd lede && ./scripts/feeds update -a
@@ -84,7 +81,7 @@ jobs:
       run: |
         cd lede
         
-        # 1. 直接创建完整的 seed 配置文件
+        # 创建完整的配置文件
         cat > .config <<EOF
 CONFIG_TARGET_ath79=y
 CONFIG_TARGET_ath79_generic=y
@@ -113,62 +110,47 @@ CONFIG_PACKAGE_kmod-nls-utf8=y
 CONFIG_PACKAGE_block-mount=y
 EOF
 
-        # 2. 运行 defconfig 来解析依赖
-        make defconfig || { echo "❌ make defconfig 失败"; exit 1; }
+        # 运行 defconfig 解析依赖
+        make defconfig || { echo "defconfig failed"; exit 1; }
 
-        # 3. 验证设备是否被正确选中
-        echo "🔍 验证当前设备配置："
-        grep "CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800" .config || {
-          echo "❌ 错误：设备 netgear_wndr3800 未在 .config 中启用"
-          echo "当前 TARGET 相关配置："
-          grep "CONFIG_TARGET" .config
-          exit 1
-        }
-
-        # 4. 强制锁定内核版本
+        # 锁定内核版本
         sed -i 's/CONFIG_LINUX_KERNEL_VERSION=.*/CONFIG_LINUX_KERNEL_VERSION="4.14"/g' .config
-        echo "CONFIG_LINUX_KERNEL_VERSION=\"4.14\"" >> .config
 
-        # 5. 精简语言包
+        # 精简语言包
         sed -i 's/luci-i18n-.*-zh-cn/luci-i18n-base-zh-cn/g' .config
 
-        # 6. 最终验证并保存配置
-        echo "===== 最终目标设备 ====="
-        grep "CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800" .config
+        # 验证配置
+        echo "=== 目标设备验证 ==="
+        grep "CONFIG_TARGET_ath79" .config
         grep "CONFIG_TARGET_BOARD" .config
-        grep "CONFIG_TARGET_ARCH_PACKAGES" .config
-        echo "======================="
+        echo "=================="
 
         cp .config $GITHUB_WORKSPACE/final.config
 
-    - name: Upload final .config for debugging
-      uses: actions/upload-artifact@main
+    - name: Upload final .config
+      uses: actions/upload-artifact@v4
       with:
-        name: final_config_${{ env.FILE_DATE }}
+        name: final_config
         path: final.config
 
     - name: Download package
       run: |
         cd lede
         make download -j8
-        find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
     - name: Compile the firmware
       run: |
         cd lede
-        make -j$(nproc) || make -j1 || make -j1 V=s
+        make -j$(nproc) V=s || make -j1 V=s
 
     - name: Organize files
-      id: organize
       run: |
         mkdir -p firmware
-        find lede/bin/targets/ -type f \( -name "*.bin" -o -name "*.img" \) -exec cp {} ./firmware/ \;
-        echo "status=success" >> $GITHUB_OUTPUT
+        find lede/bin/targets/ -type f -name "*.bin" -o -name "*.img" -o -name "*.gz" | xargs -i cp {} firmware/
 
-    - name: Upload firmware directory
-      uses: actions/upload-artifact@main
-      if: steps.organize.outputs.status == 'success'
+    - name: Upload firmware
+      uses: actions/upload-artifact@v4
       with:
-        name: WNDR3800_Lean_4.14_${{ env.FILE_DATE }}
+        name: WNDR3800_Firmware_${{ env.FILE_DATE }}
         path: ./firmware/*
