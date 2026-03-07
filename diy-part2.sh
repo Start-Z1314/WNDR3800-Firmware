@@ -164,9 +164,5 @@ EOF
 chmod +x package/base-files/files/etc/uci-defaults/99-init-settings
 echo "✓ 已创建 /etc/uci-defaults/99-init-settings"
 
-if [ -f ".config" ]; then
-    sed -i 's/luci-i18n-.*-zh-cn/luci-i18n-base-zh-cn/g' .config
-    echo "✓ 已精简语言包配置"
-fi
-
+# 注意：语言包精简已在 Generate Configuration 步骤中处理，此处不再操作
 echo "diy-part2.sh 执行完成 - 所有预设已就绪"
