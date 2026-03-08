@@ -82,8 +82,8 @@ jobs:
     - name: Generate final configuration
       run: |
         cd lede
-        # 使用 FORCE=1 跳过依赖检查
-        FORCE=1 make defconfig || { echo "❌ make defconfig 失败"; exit 1; }
+        # 将 FORCE=1 作为 make 的参数传递
+        make FORCE=1 defconfig || { echo "❌ make defconfig 失败"; exit 1; }
         echo "=== 验证目标设备 ==="
         grep "CONFIG_TARGET_ar71xx_generic_DEVICE_netgear_wndr3800" .config || {
           echo "❌ 错误：设备 netgear_wndr3800 未启用"
@@ -100,8 +100,8 @@ jobs:
     - name: Compile the firmware
       run: |
         cd lede
-        # 使用 FORCE=1 跳过依赖检查
-        FORCE=1 make -j1 V=s
+        # 同样，将 FORCE=1 作为 make 的参数
+        make FORCE=1 -j1 V=s
 
     - name: Organize files
       run: |
