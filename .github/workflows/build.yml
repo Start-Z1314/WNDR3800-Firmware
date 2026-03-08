@@ -1,11 +1,12 @@
-name: Build WNDR3800 Lean 4.14 Firmware
+name: Build WNDR3800 4.14 Firmware (Old Source)
 
 on:
   workflow_dispatch:
   repository_dispatch:
 
 env:
-  REPO_URL: https://github.com/coolsnowwolf/lede
+  # 切换到旧内核源码仓库
+  REPO_URL: https://github.com/coolsnowwolf/openwrt
   REPO_BRANCH: master
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
@@ -16,11 +17,11 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04  # 旧版源码建议使用较旧的Ubuntu环境
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
 
     - name: Initialization environment
       env:
@@ -28,7 +29,8 @@ jobs:
       run: |
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
         sudo -E apt-get -qq update
-        sudo -E apt-get -qq install $(curl -fsSL https://is.gd/depends_ubuntu_2204) dos2unix
+        # 安装旧版编译依赖（移除了新版中可能不兼容的包）
+        sudo -E apt-get -qq install build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch python3 python2.7 unzip zlib1g-dev lib32gcc1 libc6-dev-i386 subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx libelf-dev autoconf automake libtool autopoint device-tree-compiler g++-multilib antlr3 gperf wget curl swig rsync dos2unix
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
@@ -40,23 +42,26 @@ jobs:
       working-directory: /workdir
       run: |
         git clone $REPO_URL -b $REPO_BRANCH lede
+        # 旧版源码可能需要切换到特定commit以确保稳定性（可选）
+        cd lede
+        # git checkout 8f0c2b7a7f5e8d9c4b6a3f2e1d0c9b8a7f6e5d4c  # 如果知道具体commit可启用
         ln -sf /workdir/lede $GITHUB_WORKSPACE/lede
 
     - name: Cache build directories
-      uses: actions/cache@v4
+      uses: actions/cache@v3
       with:
         path: |
           /workdir/lede/dl
           /workdir/lede/build_dir
           /workdir/lede/staging_dir
           /workdir/lede/tmp
-        key: lede-build-${{ github.run_id }}
+        key: lede-build-old-${{ github.run_id }}
         restore-keys: |
-          lede-build-
+          lede-build-old-
 
     - name: Load custom feeds & DIY Part 1
       run: |
-        if [ -e "$FEEDS_CONF" ]; then cp "$FEEDS_CONF" lede/feeds.conf.default; fi
+        [ -e "$FEEDS_CONF" ] && cp "$FEEDS_CONF" lede/feeds.conf.default
         dos2unix $GITHUB_WORKSPACE/$DIY_P1_SH
         chmod +x $GITHUB_WORKSPACE/$DIY_P1_SH
         cd lede
@@ -70,7 +75,7 @@ jobs:
 
     - name: Load custom configuration & DIY Part 2
       run: |
-        if [ -e "$CONFIG_FILE" ]; then cp "$CONFIG_FILE" lede/.config; fi
+        [ -e "$CONFIG_FILE" ] && cp "$CONFIG_FILE" lede/.config
         dos2unix $GITHUB_WORKSPACE/$DIY_P2_SH
         chmod +x $GITHUB_WORKSPACE/$DIY_P2_SH
         cd lede
@@ -79,24 +84,15 @@ jobs:
     - name: Generate final configuration
       run: |
         cd lede
-        export TERM=linux
-        export NCURSES_NO_UTF8_ACS=1
+        # 使用 defconfig 确认配置
         make defconfig || { echo "❌ make defconfig 失败"; exit 1; }
-        echo "=== 最终配置验证 ==="
-        grep "CONFIG_TARGET_ath79_generic_DEVICE_netgear_wndr3800" .config || {
+        # 验证设备是否选中（旧版源码使用 ar71xx 平台）
+        echo "=== 验证目标设备 ==="
+        grep "CONFIG_TARGET_ar71xx_generic_DEVICE_netgear_wndr3800" .config || {
           echo "❌ 错误：设备 netgear_wndr3800 未启用"
           exit 1
         }
-        grep "CONFIG_TARGET_BOARD" .config
-        grep "CONFIG_TARGET_ARCH_PACKAGES" .config
         echo "==================="
-        cp .config $GITHUB_WORKSPACE/final.config
-
-    - name: Upload final .config
-      uses: actions/upload-artifact@v4
-      with:
-        name: final_config
-        path: final.config
 
     - name: Download package
       run: |
@@ -107,15 +103,17 @@ jobs:
     - name: Compile the firmware
       run: |
         cd lede
-        make -j$(nproc) V=s || make -j1 V=s
+        # 旧版源码建议使用单线程编译，稳定性更高
+        make -j1 V=s
 
     - name: Organize files
       run: |
         mkdir -p firmware
         find lede/bin/targets/ -type f \( -name "*.bin" -o -name "*.img" -o -name "*.gz" \) -exec cp {} firmware/ \;
+        echo "FIRMWARE_PATH=$PWD/firmware" >> $GITHUB_ENV
 
     - name: Upload firmware
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
-        name: WNDR3800_Firmware_${{ env.FILE_DATE }}
-        path: ./firmware/*
+        name: WNDR3800_4.14_Firmware_${{ env.FILE_DATE }}
+        path: ${{ env.FIRMWARE_PATH }}/*
