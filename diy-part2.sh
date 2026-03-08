@@ -1,22 +1,6 @@
 #!/bin/bash
 set -e
-
-echo "开始执行 diy-part2.sh (旧版源码)..."
-
-# 1. 强制修改默认主题为 Argon（检查路径是否存在）
-if [ -f "feeds/luci/collections/luci/Makefile" ]; then
-    sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/collections/luci/Makefile
-    echo "✓ 默认主题已修改为 Argon"
-fi
-
-# 2. WiFi 物理修改（强制开启）
-if [ -f "package/kernel/mac80211/files/lib/wifi/mac80211.sh" ]; then
-    sed -i 's/set wireless.radio${devidx}.disabled=1/set wireless.radio${devidx}.disabled=0/g' package/kernel/mac80211/files/lib/wifi/mac80211.sh
-    sed -i 's/set wireless.default_radio${devidx}.ssid=OpenWrt/set wireless.default_radio${devidx}.ssid=5G/g' package/kernel/mac80211/files/lib/wifi/mac80211.sh
-    echo "✓ WiFi 已强制开启，默认 SSID 改为 5G"
-fi
-
-# 3. 写入完整的 .config 配置文件（适配 ar71xx 平台）
+echo "开始执行 diy-part2.sh..."
 cat > .config <<EOF
 CONFIG_TARGET_ar71xx=y
 CONFIG_TARGET_ar71xx_generic=y
@@ -43,17 +27,13 @@ CONFIG_PACKAGE_kmod-fs-vfat=y
 CONFIG_PACKAGE_kmod-nls-utf8=y
 CONFIG_PACKAGE_block-mount=y
 EOF
+echo "✓ .config 已写入"
 
-echo "✓ .config 已写入 (ar71xx平台)"
-
-# 4. 创建 UCI 默认配置脚本（与之前完全一致）
 mkdir -p package/base-files/files/etc/uci-defaults
 cat > package/base-files/files/etc/uci-defaults/99-init-settings <<'EOF'
 #!/bin/sh
-# 系统设置
 uci set system.@system[0].hostname='OpenWrt'
 uci commit system
-# WiFi 设置
 uci set wireless.radio0.country='US'
 uci set wireless.radio1.country='US'
 uci set wireless.radio0.channel='4'
@@ -68,20 +48,16 @@ uci set wireless.@wifi-iface[1].key='zld74502'
 uci set wireless.@wifi-iface[1].encryption='psk2'
 uci commit wireless
 wifi up
-# Turbo ACC 加速
 uci set turboacc.config.sfe_flow='1'
 uci set turboacc.config.dns_cache='1'
 uci commit turboacc
-# zRAM 交换内存
 uci set zram.config.enabled='1'
 uci set zram.config.zram_size='64'
 uci commit zram
-# CPU 频率管理
 uci set cpufreq.default.governor='performance'
 uci set cpufreq.default.min_freq='800000'
 uci set cpufreq.default.max_freq='800000'
 uci commit cpufreq
-# SSR Plus+ 代理设置
 uci set ssrplus.@global[0].global_mode='1'
 uci set ssrplus.@global[0].dns_hijack='1'
 uci set ssrplus.@global[0].chinadns_ng_enable='1'
@@ -94,7 +70,6 @@ uci set ssrplus.@subscribe[0].subtype='0'
 uci set ssrplus.@subscribe[0].cron_time='0 3 * * *'
 uci set ssrplus.@subscribe[0].sub_url='https://example.com/your-subscribe-url'
 uci commit ssrplus
-# 石像鬼 QoS 设置
 uci set qos.gargoyle.enabled='1'
 uci set qos.gargoyle.wan_iface='wan'
 uci set qos.gargoyle.uplink_smart='1'
@@ -113,7 +88,6 @@ uci set qos.class_3.percent_min='15'
 uci set qos.class_3.percent_max='60'
 uci set qos.class_4.percent_min='5'
 uci set qos.class_4.percent_max='40'
-# QoS 规则
 uci add qos rule
 uci set qos.@rule[-1].name='Game'
 uci set qos.@rule[-1].priority='Highest'
@@ -143,7 +117,6 @@ uci set qos.@rule[-1].ports='6881-6889 1863 5190 5000-5010 8080 10000-20000'
 uci commit qos
 exit 0
 EOF
-
 chmod +x package/base-files/files/etc/uci-defaults/99-init-settings
 echo "✓ UCI 默认配置脚本已创建"
-echo "diy-part2.sh 执行完成 - 配置已生成"
+echo "diy-part2.sh 执行完成"
